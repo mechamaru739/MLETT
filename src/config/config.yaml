@@ -1,0 +1,98 @@
+# MLETT Configuration File
+
+# Data configuration
+data:
+  raw_data_path: "data/raw/ETTh1.csv"
+  processed_data_dir: "data/processed"
+  datetime_column: "date"
+  target_column: "OT"
+  
+  # Feature columns
+  numerical_features:
+    - "HUFL"
+    - "HULL"
+    - "MUFL"
+    - "MULL"
+    - "LUFL"
+    - "LULL"
+  
+  # Categorical features (if any)
+  categorical_features: []
+
+# Data splitting configuration
+split:
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+
+# Feature engineering configuration
+features:
+  # Time-based features
+  extract_time_features: true
+  include_cyclical_features: true
+  
+  # Rolling window features
+  create_rolling_features: false
+  rolling_windows: [3, 6, 12, 24]
+  
+  # Lag features
+  create_lag_features: false
+  lags: [1, 2, 3, 6, 12, 24]
+  
+  # Sliding window for time series
+  window_size: 24
+  forecast_horizon: 1
+  window_step: 1
+
+# Model configuration
+model:
+  type: "xgboost"
+  
+  # XGBoost parameters
+  xgboost:
+    objective: "reg:squarederror"
+    max_depth: 6
+    learning_rate: 0.1
+    n_estimators: 100
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    n_jobs: -1
+    early_stopping_rounds: 10
+
+# Training configuration
+training:
+  batch_size: 1000
+  use_validation: true
+  early_stopping: true
+  save_model: true
+  save_predictions: true
+
+# Paths configuration
+paths:
+  models_dir: "models"
+  logs_dir: "logs"
+  results_dir: "results"
+  
+# Evaluation configuration
+evaluation:
+  metrics:
+    - "MSE"
+    - "RMSE"
+    - "MAE"
+    - "R2"
+    - "MAPE"
+  
+  # Thresholds for good performance
+  performance_thresholds:
+    R2: 0.8
+    MAPE: 20.0
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_to_file: true
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Reproducibility
+random_seed: 42
