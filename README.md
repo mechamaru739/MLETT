@@ -7,23 +7,45 @@ A machine learning pipeline for time series forecasting using the ETT (Electrici
 ```
 MLETT/
 ├── data/
-│   ├── raw/                    # Raw data files
-│   └── processed/              # Processed data files
-├── src/                        # Source code
-│   ├── config/                 # Configuration files
-│   ├── data/                   # Data processing modules
-│   ├── features/               # Feature engineering modules
-│   ├── models/                 # Machine learning models
-│   ├── training/               # Training and evaluation modules
-│   └── utils/                  # Utility functions
-├── scripts/                    # Executable scripts
-│   ├── train.py               # Training script
-│   ├── evaluate.py            # Evaluation script
-│   └── predict.py             # Prediction script
-├── models/                     # Saved models
-├── logs/                       # Log files
-├── results/                    # Experiment results
-└── notebook/                   # Jupyter notebooks for analysis
+│   ├── raw/                        # Raw data files
+│   └── processed/                  # Processed data files
+├── src/mlett/                      # Source code (namespace package)
+│   ├── __init__.py                 # Package entry
+│   ├── config/                     # Configuration
+│   │   ├── __init__.py
+│   │   └── config.yaml            # Main config file
+│   ├── data/                       # Data processing
+│   │   ├── __init__.py
+│   │   ├── preprocessing.py
+│   │   └── time_series_split.py
+│   ├── features/                   # Feature engineering
+│   │   ├── __init__.py
+│   │   └── engineering.py
+│   ├── models/                     # ML models
+│   │   ├── __init__.py
+│   │   ├── base_model.py
+│   │   └── xgboost_model.py
+│   ├── training/                   # Training & evaluation
+│   │   ├── __init__.py
+│   │   └── trainer.py
+│   └── utils/                      # Utilities
+│       ├── __init__.py
+│       ├── io.py
+│       ├── logger.py
+│       └── metrics.py
+├── scripts/                        # Executable scripts
+│   ├── train.py                    # Training script
+│   ├── evaluate.py                 # Evaluation script
+│   └── predict.py                  # Prediction script
+├── models/                         # Saved models
+├── logs/                           # Log files
+├── results/                        # Experiment results
+├── notebook/                       # Jupyter notebooks
+├── pyproject.toml                  # Package config (PEP 621)
+├── requirements.txt                # Dependencies
+├── .gitignore
+├── README.md
+└── README_CN.md
 
 ```
 
@@ -41,15 +63,12 @@ conda create -n data_science python=3.9
 conda activate data_science
 ```
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Install the package:
+2. Install the package (includes all dependencies):
 ```bash
 pip install -e .
 ```
+
+> This uses `pyproject.toml` (PEP 621) for package configuration. The `-e` flag installs in editable/development mode so code changes take effect immediately.
 
 ## Usage
 
@@ -86,7 +105,7 @@ python scripts/predict.py --model models/model_x.pkl --data data/processed/input
 
 ## Configuration
 
-The main configuration file is `src/config/config.yaml`. You can customize:
+The main configuration file is `src/mlett/config/config.yaml`. You can customize:
 - Data paths and splitting ratios
 - Feature engineering options
 - Model parameters
@@ -128,10 +147,20 @@ The project follows a modular structure:
 
 ### Adding New Models
 
-1. Create a new model class in `src/models/`
+1. Create a new model class in `src/mlett/models/`
 2. Inherit from `BaseModel`
 3. Implement required abstract methods
 4. Update the trainer to support the new model type
+
+### Package Import
+
+The project uses the `mlett` namespace package. All modules are imported via:
+```python
+from mlett.data.preprocessing import load_data, clean_data
+from mlett.features.engineering import feature_pipeline
+from mlett.training.trainer import Trainer
+from mlett.utils.logger import setup_logger
+```
 
 ## Results
 

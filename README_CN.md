@@ -7,23 +7,45 @@
 ```
 MLETT/
 ├── data/
-│   ├── raw/                    # 原始数据文件
-│   └── processed/              # 处理后的数据文件
-├── src/                        # 源代码
-│   ├── config/                 # 配置文件
-│   ├── data/                   # 数据处理模块
-│   ├── features/               # 特征工程模块
-│   ├── models/                 # 机器学习模型
-│   ├── training/               # 训练和评估模块
-│   └── utils/                  # 工具函数
-├── scripts/                    # 可执行脚本
-│   ├── train.py               # 训练脚本
-│   ├── evaluate.py            # 评估脚本
-│   └── predict.py             # 预测脚本
-├── models/                     # 保存的模型
-├── logs/                       # 日志文件
-├── results/                    # 实验结果
-└── notebook/                   # 分析用的Jupyter笔记本
+│   ├── raw/                        # 原始数据文件
+│   └── processed/                  # 处理后的数据文件
+├── src/mlett/                      # 源代码（命名空间包）
+│   ├── __init__.py                 # 包入口
+│   ├── config/                     # 配置
+│   │   ├── __init__.py
+│   │   └── config.yaml            # 主配置文件
+│   ├── data/                       # 数据处理
+│   │   ├── __init__.py
+│   │   ├── preprocessing.py
+│   │   └── time_series_split.py
+│   ├── features/                   # 特征工程
+│   │   ├── __init__.py
+│   │   └── engineering.py
+│   ├── models/                     # 机器学习模型
+│   │   ├── __init__.py
+│   │   ├── base_model.py
+│   │   └── xgboost_model.py
+│   ├── training/                   # 训练和评估
+│   │   ├── __init__.py
+│   │   └── trainer.py
+│   └── utils/                      # 工具函数
+│       ├── __init__.py
+│       ├── io.py
+│       ├── logger.py
+│       └── metrics.py
+├── scripts/                        # 可执行脚本
+│   ├── train.py                    # 训练脚本
+│   ├── evaluate.py                 # 评估脚本
+│   └── predict.py                  # 预测脚本
+├── models/                         # 保存的模型
+├── logs/                           # 日志文件
+├── results/                        # 实验结果
+├── notebook/                       # Jupyter笔记本
+├── pyproject.toml                  # 包配置（PEP 621）
+├── requirements.txt                # 依赖
+├── .gitignore
+├── README.md
+└── README_CN.md
 
 ```
 
@@ -41,15 +63,12 @@ conda create -n data_science python=3.9
 conda activate data_science
 ```
 
-2. 安装依赖：
-```bash
-pip install -r requirements.txt
-```
-
-3. 安装包：
+2. 安装包（包含所有依赖）：
 ```bash
 pip install -e .
 ```
+
+> 项目使用 `pyproject.toml`（PEP 621规范）进行包配置。`-e` 参数以开发模式安装，代码修改后即时生效。
 
 ## 使用方法
 
@@ -86,7 +105,7 @@ python scripts/predict.py --model models/model_x.pkl --data data/processed/input
 
 ## 配置
 
-主配置文件是 `src/config/config.yaml`。您可以自定义：
+主配置文件是 `src/mlett/config/config.yaml`。您可以自定义：
 - 数据路径和分割比例
 - 特征工程选项
 - 模型参数
@@ -128,10 +147,20 @@ python scripts/predict.py --model models/model_x.pkl --data data/processed/input
 
 ### 添加新模型
 
-1. 在 `src/models/` 中创建新的模型类
+1. 在 `src/mlett/models/` 中创建新的模型类
 2. 继承自 `BaseModel`
 3. 实现所需的抽象方法
 4. 更新训练器以支持新的模型类型
+
+### 包导入方式
+
+项目使用 `mlett` 命名空间包，所有模块通过以下方式导入：
+```python
+from mlett.data.preprocessing import load_data, clean_data
+from mlett.features.engineering import feature_pipeline
+from mlett.training.trainer import Trainer
+from mlett.utils.logger import setup_logger
+```
 
 ## 结果
 
