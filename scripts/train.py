@@ -1,21 +1,15 @@
 """Main training script for MLETT time series forecasting."""
 
 import argparse
-import sys
 import os
 import yaml
-import pandas as pd
-import numpy as np
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from data.preprocessing import load_data, clean_data
-from data.time_series_split import time_series_split, create_sliding_windows
-from features.engineering import feature_pipeline
-from training.trainer import Trainer
-from utils.logger import setup_logger, get_timestamp
-from utils.io import save_yaml
+from mlett.data.preprocessing import load_data, clean_data
+from mlett.data.time_series_split import time_series_split
+from mlett.features.engineering import feature_pipeline
+from mlett.training.trainer import Trainer
+from mlett.utils.logger import setup_logger, get_timestamp
+from mlett.utils.io import save_yaml
 
 
 def load_config(config_path: str) -> dict:
@@ -35,7 +29,7 @@ def load_config(config_path: str) -> dict:
 def main():
     """Main training function."""
     parser = argparse.ArgumentParser(description='Train time series forecasting model')
-    parser.add_argument('--config', type=str, default='src/config/config.yaml',
+    parser.add_argument('--config', type=str, default='src/mlett/config/config.yaml',
                         help='Path to configuration file')
     parser.add_argument('--model-name', type=str, default=None,
                         help='Name for the saved model')

@@ -1,19 +1,14 @@
 """Evaluation script for trained models."""
 
 import argparse
-import sys
 import os
-import yaml
 import pandas as pd
 import numpy as np
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from models.xgboost_model import XGBoostModel
-from utils.metrics import calculate_metrics, format_metrics
-from utils.logger import setup_logger, get_timestamp
-from utils.io import load_yaml, save_yaml
+from mlett.models.xgboost_model import XGBoostModel
+from mlett.utils.metrics import calculate_metrics, format_metrics
+from mlett.utils.logger import setup_logger, get_timestamp
+from mlett.utils.io import load_yaml, save_yaml
 
 
 def evaluate_model(
@@ -97,7 +92,7 @@ def main():
                         help='Path to trained model file')
     parser.add_argument('--data', type=str, required=True,
                         help='Path to test data file')
-    parser.add_argument('--config', type=str, default='src/config/config.yaml',
+    parser.add_argument('--config', type=str, default='src/mlett/config/config.yaml',
                         help='Path to configuration file')
     parser.add_argument('--output', type=str, default='results',
                         help='Output directory for results')

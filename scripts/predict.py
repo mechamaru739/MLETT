@@ -1,17 +1,13 @@
 """Prediction script for trained models."""
 
 import argparse
-import sys
 import os
 import pandas as pd
 import numpy as np
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from models.xgboost_model import XGBoostModel
-from utils.logger import setup_logger, get_timestamp
-from utils.io import save_dataframe
+from mlett.models.xgboost_model import XGBoostModel
+from mlett.utils.logger import setup_logger, get_timestamp
+from mlett.utils.io import save_dataframe
 
 
 def make_predictions(

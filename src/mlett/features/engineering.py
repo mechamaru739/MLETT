@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 def extract_time_features(data: pd.DataFrame, datetime_column: str) -> pd.DataFrame:

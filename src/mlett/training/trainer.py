@@ -6,10 +6,10 @@ from typing import Dict, Any, Optional, Tuple
 import os
 from datetime import datetime
 
-from ..models.xgboost_model import XGBoostModel
-from ..utils.metrics import calculate_metrics, format_metrics
-from ..utils.logger import setup_logger, get_timestamp
-from ..utils.io import save_yaml, save_model
+from mlett.models.xgboost_model import XGBoostModel
+from mlett.utils.metrics import calculate_metrics, format_metrics
+from mlett.utils.logger import setup_logger, get_timestamp
+from mlett.utils.io import save_yaml
 
 
 class Trainer:
