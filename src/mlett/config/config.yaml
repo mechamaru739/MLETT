@@ -7,7 +7,7 @@ data:
   datetime_column: "date"
   target_column: "OT"
   
-  # Feature columns
+  # Feature columns (used as input to sliding window)
   numerical_features:
     - "HUFL"
     - "HULL"
@@ -20,6 +20,7 @@ data:
   categorical_features: []
 
 # Data splitting configuration
+# Ratios are applied to raw data BEFORE windowing to prevent data leakage
 split:
   train_ratio: 0.7
   val_ratio: 0.15
@@ -31,15 +32,16 @@ features:
   extract_time_features: true
   include_cyclical_features: true
   
-  # Rolling window features
+  # Rolling window features (not used in sliding window mode)
   create_rolling_features: false
   rolling_windows: [3, 6, 12, 24]
   
-  # Lag features
+  # Lag features (not used in sliding window mode)
   create_lag_features: false
   lags: [1, 2, 3, 6, 12, 24]
   
-  # Sliding window for time series
+  # Sliding window configuration for time series forecasting
+  # Each sample: past `window_size` hours of features -> future `forecast_horizon` hours of OT
   window_size: 24
   forecast_horizon: 1
   window_step: 1
@@ -62,9 +64,7 @@ model:
 
 # Training configuration
 training:
-  batch_size: 1000
   use_validation: true
-  early_stopping: true
   save_model: true
   save_predictions: true
 
@@ -73,7 +73,7 @@ paths:
   models_dir: "models"
   logs_dir: "logs"
   results_dir: "results"
-  
+
 # Evaluation configuration
 evaluation:
   metrics:

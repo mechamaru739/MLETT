@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
 
 def extract_time_features(data: pd.DataFrame, datetime_column: str) -> pd.DataFrame:
@@ -72,11 +72,14 @@ def scale_features(
     """
     Scale numerical features using StandardScaler.
     
+    When fit=True, a new scaler is fitted on the data (use on training set).
+    When fit=False, a pre-fitted scaler is applied (use on val/test sets).
+    
     Parameters:
         X (pd.DataFrame): Input DataFrame
         numerical_features (List[str]): List of numerical feature columns
         fit (bool): Whether to fit the scaler (default: True)
-        scaler (StandardScaler): Pre-fitted scaler (optional)
+        scaler (StandardScaler): Pre-fitted scaler (required when fit=False)
     
     Returns:
         Tuple[pd.DataFrame, StandardScaler]: Scaled DataFrame and fitted scaler
@@ -106,11 +109,14 @@ def encode_features(
     """
     Encode categorical features using OneHotEncoder.
     
+    When fit=True, a new encoder is fitted on the data (use on training set).
+    When fit=False, a pre-fitted encoder is applied (use on val/test sets).
+    
     Parameters:
         X (pd.DataFrame): Input DataFrame
         categorical_features (List[str]): List of categorical feature columns
         fit (bool): Whether to fit the encoder (default: True)
-        encoder (OneHotEncoder): Pre-fitted encoder (optional)
+        encoder (OneHotEncoder): Pre-fitted encoder (required when fit=False)
     
     Returns:
         Tuple[pd.DataFrame, OneHotEncoder]: Encoded DataFrame and fitted encoder
@@ -141,6 +147,77 @@ def encode_features(
     return result, encoder
 
 
+class FeatureTransformer:
+    """
+    Stateful feature engineering transformer that avoids data leakage.
+    
+    The transformer is fitted on training data only, then applied to
+    validation and test data using the fitted parameters.
+    
+    Usage:
+        transformer = FeatureTransformer(datetime_column, numerical_features, ...)
+        train_data = transformer.fit_transform(train_raw)
+        val_data = transformer.transform(val_raw)
+        test_data = transformer.transform(test_raw)
+    """
+    
+    def __init__(
+        self,
+        datetime_column: str,
+        numerical_features: List[str],
+        categorical_features: Optional[List[str]] = None
+    ):
+        self.datetime_column = datetime_column
+        self.numerical_features = numerical_features
+        self.categorical_features = categorical_features or []
+        self.scaler = None
+        self.encoder = None
+        self._fitted = False
+    
+    def fit_transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit transformers on training data and transform it.
+        
+        Parameters:
+            data (pd.DataFrame): Training data
+        
+        Returns:
+            pd.DataFrame: Transformed training data
+        """
+        result = extract_time_features(data, self.datetime_column)
+        result, self.scaler = scale_features(result, self.numerical_features, fit=True)
+        
+        if self.categorical_features:
+            result, self.encoder = encode_features(result, self.categorical_features, fit=True)
+        
+        self._fitted = True
+        return result
+    
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transform data using pre-fitted transformers (for val/test).
+        
+        Parameters:
+            data (pd.DataFrame): Validation or test data
+        
+        Returns:
+            pd.DataFrame: Transformed data
+        
+        Raises:
+            RuntimeError: If transformer has not been fitted
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit_transform before transform")
+        
+        result = extract_time_features(data, self.datetime_column)
+        result, _ = scale_features(result, self.numerical_features, fit=False, scaler=self.scaler)
+        
+        if self.categorical_features:
+            result, _ = encode_features(result, self.categorical_features, fit=False, encoder=self.encoder)
+        
+        return result
+
+
 def feature_pipeline(
     data: pd.DataFrame,
     datetime_column: str,
@@ -153,6 +230,9 @@ def feature_pipeline(
 ) -> Tuple[pd.DataFrame, Optional[StandardScaler], Optional[OneHotEncoder]]:
     """
     Complete feature engineering pipeline.
+    
+    Note: For proper time series workflow without data leakage, use FeatureTransformer
+    instead, which fits on training data only and transforms val/test separately.
     
     Parameters:
         data (pd.DataFrame): Input DataFrame

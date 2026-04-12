@@ -5,11 +5,11 @@ import os
 import yaml
 
 from mlett.data.preprocessing import load_data, clean_data
-from mlett.data.time_series_split import time_series_split
-from mlett.features.engineering import feature_pipeline
+from mlett.data.time_series_split import time_series_split, prepare_ts_dataset
+from mlett.features.engineering import FeatureTransformer
 from mlett.training.trainer import Trainer
 from mlett.utils.logger import setup_logger, get_timestamp
-from mlett.utils.io import save_yaml
+from mlett.utils.io import save_yaml, save_model
 
 
 def load_config(config_path: str) -> dict:
@@ -44,51 +44,77 @@ def main():
     logger.info("Starting MLETT training pipeline")
     logger.info(f"Configuration loaded from: {args.config}")
     
+    logger.info("=" * 60)
+    logger.info("SAMPLE DEFINITION (Sliding Window):")
+    logger.info("  Input X:  past window_size hours of all features")
+    logger.info("  Output y: future forecast_horizon hours of OT")
+    logger.info(f"  window_size = {config['features']['window_size']}")
+    logger.info(f"  forecast_horizon = {config['features']['forecast_horizon']}")
+    logger.info("=" * 60)
+    
     try:
         # Step 1: Load data
         logger.info(f"Loading data from: {config['data']['raw_data_path']}")
         data = load_data(config['data']['raw_data_path'])
         logger.info(f"Raw data shape: {data.shape}")
+        logger.info(f"Columns: {list(data.columns)}")
         
         # Step 2: Clean data
         logger.info("Cleaning data...")
         data = clean_data(data)
         logger.info(f"Cleaned data shape: {data.shape}")
         
-        # Step 3: Feature engineering
-        logger.info("Performing feature engineering...")
-        processed_data, scaler, encoder = feature_pipeline(
-            data=data,
-            datetime_column=config['data']['datetime_column'],
-            numerical_features=config['data']['numerical_features'],
-            categorical_features=config['data']['categorical_features'],
-            fit_scaler=True,
-            fit_encoder=True
-        )
-        logger.info(f"Processed data shape: {processed_data.shape}")
-        
-        # Step 4: Split data
-        logger.info("Splitting data into train/val/test sets...")
-        train_data, val_data, test_data = time_series_split(
-            processed_data,
+        # Step 3: Chronological split FIRST (avoid data leakage)
+        logger.info("Splitting raw data into train/val/test (before feature engineering)...")
+        train_raw, val_raw, test_raw = time_series_split(
+            data,
             train_ratio=config['split']['train_ratio'],
             val_ratio=config['split']['val_ratio'],
             test_ratio=config['split']['test_ratio']
         )
-        logger.info(f"Train shape: {train_data.shape}, Val shape: {val_data.shape}, Test shape: {test_data.shape}")
+        logger.info(f"Raw split -> Train: {train_raw.shape}, Val: {val_raw.shape}, Test: {test_raw.shape}")
         
-        # Step 5: Prepare features and targets
+        # Step 4: Feature engineering with anti-leakage fitting
+        logger.info("Performing feature engineering (fit on train only)...")
+        transformer = FeatureTransformer(
+            datetime_column=config['data']['datetime_column'],
+            numerical_features=config['data']['numerical_features'],
+            categorical_features=config['data']['categorical_features'] or None
+        )
+        
+        train_data = transformer.fit_transform(train_raw)
+        val_data = transformer.transform(val_raw)
+        test_data = transformer.transform(test_raw)
+        
+        logger.info(f"Feature-engineered -> Train: {train_data.shape}, Val: {val_data.shape}, Test: {test_data.shape}")
+        logger.info(f"Feature columns: {[c for c in train_data.columns if c != config['data']['target_column']]}")
+        
+        # Step 5: Build sliding window samples
+        logger.info("Building sliding window samples...")
+        window_size = config['features']['window_size']
+        horizon = config['features']['forecast_horizon']
+        step = config['features']['window_step']
         target_column = config['data']['target_column']
-        feature_columns = [col for col in processed_data.columns if col != target_column]
         
-        X_train = train_data[feature_columns]
-        y_train = train_data[target_column]
-        X_val = val_data[feature_columns]
-        y_val = val_data[target_column]
-        X_test = test_data[feature_columns]
-        y_test = test_data[target_column]
+        X_train, y_train, X_val, y_val, X_test, y_test = prepare_ts_dataset(
+            train_data,
+            target_column=target_column,
+            window_size=window_size,
+            horizon=horizon,
+            step=step,
+            train_ratio=1.0,
+            val_ratio=0.0,
+            test_ratio=0.0
+        )
         
-        logger.info(f"Feature columns count: {len(feature_columns)}")
+        # Build val and test windows separately from their own data
+        from mlett.data.time_series_split import create_sliding_windows
+        X_val, y_val = create_sliding_windows(val_data, target_column, window_size, horizon, step)
+        X_test, y_test = create_sliding_windows(test_data, target_column, window_size, horizon, step)
+        
+        logger.info(f"Window samples -> Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+        logger.info(f"Target shapes -> Train y: {y_train.shape}, Val y: {y_val.shape}, Test y: {y_test.shape}")
+        logger.info(f"Each sample: {window_size} time steps x {X_train.shape[1] // window_size} features = {X_train.shape[1]} dimensions")
         
         # Step 6: Initialize trainer
         logger.info("Initializing trainer...")
@@ -123,10 +149,27 @@ def main():
                 model_name=args.model_name
             )
             
-            # Save test results
+            # Save transformer for inference
+            import joblib
+            os.makedirs(config['paths']['models_dir'], exist_ok=True)
+            transformer_path = os.path.join(
+                config['paths']['models_dir'],
+                f"{args.model_name or 'model_' + get_timestamp()}_transformer.pkl"
+            )
+            joblib.dump(transformer, transformer_path)
+            logger.info(f"Feature transformer saved to: {transformer_path}")
+            
+            # Save test results with sample definition info
             results_summary = {
                 'training_results': training_results,
                 'test_metrics': test_metrics,
+                'sample_definition': {
+                    'window_size': window_size,
+                    'forecast_horizon': horizon,
+                    'window_step': step,
+                    'input_dimensions': X_train.shape[1],
+                    'description': f'Each sample uses past {window_size} hours of features to predict next {horizon} hour(s) of OT'
+                },
                 'config': config,
                 'timestamp': get_timestamp()
             }
