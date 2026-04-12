@@ -10,6 +10,7 @@ from mlett.features.engineering import FeatureTransformer
 from mlett.training.trainer import Trainer
 from mlett.utils.logger import setup_logger, get_timestamp
 from mlett.utils.io import save_yaml, save_model
+from mlett.utils.seed import set_random_seed
 
 
 def load_config(config_path: str) -> dict:
@@ -39,10 +40,15 @@ def main():
     # Load configuration
     config = load_config(args.config)
     
+    # Set random seed for reproducibility
+    seed = config.get('random_seed', 42)
+    set_random_seed(seed)
+    
     # Setup logging
     logger = setup_logger("MainTrain", os.path.join(config['paths']['logs_dir'], f"main_train_{get_timestamp()}.log"))
     logger.info("Starting MLETT training pipeline")
     logger.info(f"Configuration loaded from: {args.config}")
+    logger.info(f"Random seed set to: {seed}")
     
     logger.info("=" * 60)
     logger.info("SAMPLE DEFINITION (Sliding Window):")
