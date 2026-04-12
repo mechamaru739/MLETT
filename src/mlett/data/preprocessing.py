@@ -28,7 +28,7 @@ def clean_data(data: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame: 清洗后的DataFrame
     """
     data = data.drop_duplicates()
-    data = data.fillna(data.mean())
+    data = data.fillna(data.mean(numeric_only=True))
     return data
 
 

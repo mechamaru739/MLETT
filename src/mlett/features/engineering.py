@@ -40,6 +40,8 @@ def extract_time_features(data: pd.DataFrame, datetime_column: str) -> pd.DataFr
     result['month_sin'] = np.sin(2 * np.pi * result['month'] / 12)
     result['month_cos'] = np.cos(2 * np.pi * result['month'] / 12)
     
+    result = result.drop(columns=[datetime_column])
+    
     return result
 
 
