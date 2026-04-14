@@ -1,8 +1,8 @@
-"""Time series data splitting and dataset preparation utilities."""
+"""Time series data splitting and windowing utilities."""
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, Dict, Any, Optional, List
+from typing import Tuple, List
 
 
 def time_series_split(
@@ -78,56 +78,6 @@ def create_sliding_windows(
         y.append(window_target.flatten())
     
     return np.array(X), np.array(y)
-
-
-def prepare_ts_dataset(
-    data: pd.DataFrame,
-    target_column: str,
-    window_size: int = 24,
-    horizon: int = 1,
-    step: int = 1,
-    train_ratio: float = 0.7,
-    val_ratio: float = 0.15,
-    test_ratio: float = 0.15
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Complete time series dataset preparation pipeline:
-    1. Split raw data into train/val/test chronologically
-    2. Build sliding windows for each split independently
-    
-    This avoids data leakage: no future information leaks into training windows.
-    
-    Parameters:
-        data (pd.DataFrame): Preprocessed DataFrame (already feature-engineered and scaled)
-        target_column (str): Name of the target column
-        window_size (int): Input window size in time steps (default: 24)
-        horizon (int): Forecast horizon in time steps (default: 1)
-        step (int): Step size between consecutive windows (default: 1)
-        train_ratio (float): Training set ratio (default: 0.7)
-        val_ratio (float): Validation set ratio (default: 0.15)
-        test_ratio (float): Test set ratio (default: 0.15)
-    
-    Returns:
-        Tuple of 6 arrays:
-            X_train, y_train, X_val, y_val, X_test, y_test
-    """
-    # Step 1: Chronological split on raw data
-    train_data, val_data, test_data = time_series_split(
-        data, train_ratio, val_ratio, test_ratio
-    )
-    
-    # Step 2: Build sliding windows for each split
-    X_train, y_train = create_sliding_windows(
-        train_data, target_column, window_size, horizon, step
-    )
-    X_val, y_val = create_sliding_windows(
-        val_data, target_column, window_size, horizon, step
-    )
-    X_test, y_test = create_sliding_windows(
-        test_data, target_column, window_size, horizon, step
-    )
-    
-    return X_train, y_train, X_val, y_val, X_test, y_test
 
 
 def create_rolling_features(

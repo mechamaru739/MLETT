@@ -5,7 +5,7 @@ import os
 import yaml
 
 from mlett.data.preprocessing import load_data, clean_data
-from mlett.data.time_series_split import time_series_split, prepare_ts_dataset
+from mlett.data.time_series_split import time_series_split, create_sliding_windows
 from mlett.features.engineering import FeatureTransformer
 from mlett.training.trainer import Trainer
 from mlett.utils.logger import setup_logger, get_timestamp
@@ -102,19 +102,7 @@ def main():
         step = config['features']['window_step']
         target_column = config['data']['target_column']
         
-        X_train, y_train, X_val, y_val, X_test, y_test = prepare_ts_dataset(
-            train_data,
-            target_column=target_column,
-            window_size=window_size,
-            horizon=horizon,
-            step=step,
-            train_ratio=1.0,
-            val_ratio=0.0,
-            test_ratio=0.0
-        )
-        
-        # Build val and test windows separately from their own data
-        from mlett.data.time_series_split import create_sliding_windows
+        X_train, y_train = create_sliding_windows(train_data, target_column, window_size, horizon, step)
         X_val, y_val = create_sliding_windows(val_data, target_column, window_size, horizon, step)
         X_test, y_test = create_sliding_windows(test_data, target_column, window_size, horizon, step)
         
