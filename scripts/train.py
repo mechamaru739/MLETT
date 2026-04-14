@@ -9,7 +9,7 @@ from mlett.data.time_series_split import time_series_split, create_sliding_windo
 from mlett.features.engineering import FeatureTransformer
 from mlett.training.trainer import Trainer
 from mlett.utils.logger import setup_logger, get_timestamp
-from mlett.utils.io import save_yaml, save_model
+from mlett.utils.io import save_yaml
 from mlett.utils.seed import set_random_seed
 
 
@@ -44,11 +44,18 @@ def main():
     seed = config.get('random_seed', 42)
     set_random_seed(seed)
     
-    # Setup logging
-    logger = setup_logger("MainTrain", os.path.join(config['paths']['logs_dir'], f"main_train_{get_timestamp()}.log"))
+    # Determine experiment name
+    experiment_name = args.model_name or get_timestamp()
+    experiment_dir = os.path.join(config['paths']['results_dir'], experiment_name)
+    os.makedirs(experiment_dir, exist_ok=True)
+    
+    # Setup logging to experiment directory
+    log_file = os.path.join(experiment_dir, "train.log")
+    logger = setup_logger("MainTrain", log_file)
     logger.info("Starting MLETT training pipeline")
     logger.info(f"Configuration loaded from: {args.config}")
     logger.info(f"Random seed set to: {seed}")
+    logger.info(f"Experiment directory: {experiment_dir}")
     
     logger.info("=" * 60)
     logger.info("SAMPLE DEFINITION (Sliding Window):")
@@ -114,7 +121,7 @@ def main():
         logger.info("Initializing trainer...")
         trainer = Trainer(
             model_params=config['model']['xgboost'],
-            log_dir=config['paths']['logs_dir']
+            log_dir=experiment_dir
         )
         
         # Step 7: Train model
@@ -136,8 +143,6 @@ def main():
         test_metrics = trainer.evaluate(X_test, y_test)
         
         # Step 9: Save model and results
-        experiment_name = args.model_name or get_timestamp()
-        
         if config['training']['save_model']:
             logger.info("Saving model and results...")
             experiment_dir = trainer.save_training_results(

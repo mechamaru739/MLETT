@@ -71,7 +71,6 @@ training:
 # Paths configuration
 paths:
   results_dir: "results"
-  logs_dir: "logs"
 
 # Evaluation configuration
 evaluation:
@@ -86,12 +85,6 @@ evaluation:
   performance_thresholds:
     R2: 0.8
     MAPE: 20.0
-
-# Logging configuration
-logging:
-  level: "INFO"
-  log_to_file: true
-  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # Reproducibility
 random_seed: 42
