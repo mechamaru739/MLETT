@@ -70,9 +70,8 @@ training:
 
 # Paths configuration
 paths:
-  models_dir: "models"
-  logs_dir: "logs"
   results_dir: "results"
+  logs_dir: "logs"
 
 # Evaluation configuration
 evaluation:

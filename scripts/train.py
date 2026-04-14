@@ -136,22 +136,25 @@ def main():
         test_metrics = trainer.evaluate(X_test, y_test)
         
         # Step 9: Save model and results
+        experiment_name = args.model_name or get_timestamp()
+        
         if config['training']['save_model']:
             logger.info("Saving model and results...")
-            trainer.save_training_results(
-                save_dir=config['paths']['models_dir'],
-                model_name=args.model_name
+            experiment_dir = trainer.save_training_results(
+                results_dir=config['paths']['results_dir'],
+                experiment_name=experiment_name
             )
             
             # Save transformer for inference
             import joblib
-            os.makedirs(config['paths']['models_dir'], exist_ok=True)
-            transformer_path = os.path.join(
-                config['paths']['models_dir'],
-                f"{args.model_name or 'model_' + get_timestamp()}_transformer.pkl"
-            )
+            transformer_path = os.path.join(experiment_dir, "transformer.pkl")
             joblib.dump(transformer, transformer_path)
             logger.info(f"Feature transformer saved to: {transformer_path}")
+            
+            # Save config snapshot
+            config_snapshot_path = os.path.join(experiment_dir, "config.yaml")
+            save_yaml(config, config_snapshot_path)
+            logger.info(f"Config snapshot saved to: {config_snapshot_path}")
             
             # Save test results with sample definition info
             results_summary = {
@@ -164,15 +167,10 @@ def main():
                     'input_dimensions': X_train.shape[1],
                     'description': f'Each sample uses past {window_size} hours of features to predict next {horizon} hour(s) of OT'
                 },
-                'config': config,
                 'timestamp': get_timestamp()
             }
             
-            results_path = os.path.join(
-                config['paths']['results_dir'],
-                f"results_{args.model_name or get_timestamp()}.yaml"
-            )
-            os.makedirs(config['paths']['results_dir'], exist_ok=True)
+            results_path = os.path.join(experiment_dir, "results.yaml")
             save_yaml(results_summary, results_path)
             logger.info(f"Results saved to: {results_path}")
         

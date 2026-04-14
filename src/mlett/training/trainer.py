@@ -140,32 +140,43 @@ class Trainer:
     
     def save_training_results(
         self,
-        save_dir: str = "models",
-        model_name: Optional[str] = None
-    ):
+        results_dir: str = "results",
+        experiment_name: Optional[str] = None
+    ) -> str:
         """
-        Save model and training results.
+        Save model and training results to an experiment directory.
+        
+        All files for one experiment are saved in a single directory:
+            results/<experiment_name>/
+                model.pkl
+                model_results.yaml
         
         Parameters:
-            save_dir (str): Directory to save model and results
-            model_name (str): Name for the model (optional)
+            results_dir (str): Root directory for all experiment results
+            experiment_name (str): Name of the experiment (used as subdirectory name)
+        
+        Returns:
+            str: Path to the experiment directory
         """
         if self.model is None:
             raise RuntimeError("No trained model to save")
         
-        if model_name is None:
-            model_name = f"model_{get_timestamp()}"
+        if experiment_name is None:
+            experiment_name = get_timestamp()
         
-        os.makedirs(save_dir, exist_ok=True)
+        experiment_dir = os.path.join(results_dir, experiment_name)
+        os.makedirs(experiment_dir, exist_ok=True)
         
-        model_path = os.path.join(save_dir, f"{model_name}.pkl")
-        results_path = os.path.join(save_dir, f"{model_name}_results.yaml")
+        model_path = os.path.join(experiment_dir, "model.pkl")
+        results_path = os.path.join(experiment_dir, "model_results.yaml")
         
         self.model.save_model(model_path)
         save_yaml(self.training_history, results_path)
         
         self.logger.info(f"Model saved to: {model_path}")
         self.logger.info(f"Results saved to: {results_path}")
+        
+        return experiment_dir
     
     def load_model(self, model_path: str):
         """
