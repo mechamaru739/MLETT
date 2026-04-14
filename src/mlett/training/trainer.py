@@ -89,7 +89,7 @@ class Trainer:
         
         if X_val is not None and y_val is not None:
             val_predictions = self.model.predict(X_val)
-            val_metrics = calculate_metrics(y_val.values, val_predictions)
+            val_metrics = calculate_metrics(np.asarray(y_val), val_predictions)
             results['validation_metrics'] = val_metrics
             
             self.logger.info("Validation Metrics:")
@@ -97,7 +97,7 @@ class Trainer:
                 self.logger.info(f"  {metric}: {value}")
         
         train_predictions = self.model.predict(X_train)
-        train_metrics = calculate_metrics(y_train.values, train_predictions)
+        train_metrics = calculate_metrics(np.asarray(y_train), train_predictions)
         results['training_metrics'] = train_metrics
         
         self.logger.info("Training Metrics:")
@@ -130,7 +130,7 @@ class Trainer:
         self.logger.info(f"Evaluating model on test data: {X_test.shape}")
         
         predictions = self.model.predict(X_test)
-        metrics = calculate_metrics(y_test.values, predictions)
+        metrics = calculate_metrics(np.asarray(y_test), predictions)
         
         self.logger.info("Test Metrics:")
         for metric, value in format_metrics(metrics).items():
