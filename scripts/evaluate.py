@@ -68,11 +68,16 @@ def evaluate_model(
         
         # Make predictions
         logger.info("Making predictions...")
-        predictions = model.predict(X)
+        predictions_std = model.predict(X)
         
-        # Calculate metrics
-        logger.info("Calculating evaluation metrics...")
-        metrics = calculate_metrics(y, predictions)
+        # Inverse transform to original scale for metrics
+        y_original = transformer.inverse_transform_target(y)
+        predictions_original = transformer.inverse_transform_target(predictions_std)
+        logger.info("Predictions and targets inverse-transformed to original scale")
+        
+        # Calculate metrics in original scale
+        logger.info("Calculating evaluation metrics (original scale)...")
+        metrics = calculate_metrics(y_original, predictions_original)
         
         # Display results
         logger.info("Evaluation Results:")

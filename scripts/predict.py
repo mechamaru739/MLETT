@@ -69,8 +69,12 @@ def make_predictions(
         
         # Make predictions
         logger.info("Making predictions...")
-        predictions = model.predict(X)
-        logger.info(f"Generated {len(predictions)} predictions")
+        predictions_std = model.predict(X)
+        logger.info(f"Generated {len(predictions_std)} predictions")
+        
+        # Inverse transform predictions to original scale
+        predictions = transformer.inverse_transform_target(predictions_std)
+        logger.info("Predictions inverse-transformed to original scale")
         
         # Create results DataFrame
         results = pd.DataFrame({
@@ -78,14 +82,15 @@ def make_predictions(
         })
         
         if y is not None and len(y) > 0:
-            results['actual'] = y.flatten()
+            y_original = transformer.inverse_transform_target(y)
+            results['actual'] = y_original.flatten()
         
         # Save predictions
         logger.info(f"Saving predictions to: {output_path}")
         results.to_csv(output_path, index=False)
         
-        # Summary statistics
-        logger.info("Prediction Statistics:")
+        # Summary statistics (in original scale)
+        logger.info("Prediction Statistics (original scale):")
         logger.info(f"  Mean: {float(predictions.mean()):.4f}")
         logger.info(f"  Std:  {float(predictions.std()):.4f}")
         logger.info(f"  Min:  {float(predictions.min()):.4f}")

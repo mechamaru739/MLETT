@@ -153,26 +153,33 @@ class FeatureTransformer:
     """
     Stateful feature engineering transformer that avoids data leakage.
     
-    The transformer is fitted on training data only, then applied to
-    validation and test data using the fitted parameters.
+    Standardizes both features and target column. Target is standardized
+    using its own scaler, and can be inverse-transformed for metrics
+    calculation in the original scale.
     
     Usage:
-        transformer = FeatureTransformer(datetime_column, numerical_features, ...)
+        transformer = FeatureTransformer(datetime_column, numerical_features, target_column, ...)
         train_data = transformer.fit_transform(train_raw)
         val_data = transformer.transform(val_raw)
         test_data = transformer.transform(test_raw)
+        
+        # Inverse transform predictions to original scale
+        y_original = transformer.inverse_transform_target(y_standardized)
     """
     
     def __init__(
         self,
         datetime_column: str,
         numerical_features: List[str],
+        target_column: Optional[str] = None,
         categorical_features: Optional[List[str]] = None
     ):
         self.datetime_column = datetime_column
         self.numerical_features = numerical_features
+        self.target_column = target_column
         self.categorical_features = categorical_features or []
         self.scaler = None
+        self.target_scaler = None
         self.encoder = None
         self._fitted = False
     
@@ -184,13 +191,17 @@ class FeatureTransformer:
             data (pd.DataFrame): Training data
         
         Returns:
-            pd.DataFrame: Transformed training data
+            pd.DataFrame: Transformed training data (features and target standardized)
         """
         result = extract_time_features(data, self.datetime_column)
         result, self.scaler = scale_features(result, self.numerical_features, fit=True)
         
         if self.categorical_features:
             result, self.encoder = encode_features(result, self.categorical_features, fit=True)
+        
+        if self.target_column and self.target_column in result.columns:
+            self.target_scaler = StandardScaler()
+            result[[self.target_column]] = self.target_scaler.fit_transform(result[[self.target_column]])
         
         self._fitted = True
         return result
@@ -203,7 +214,7 @@ class FeatureTransformer:
             data (pd.DataFrame): Validation or test data
         
         Returns:
-            pd.DataFrame: Transformed data
+            pd.DataFrame: Transformed data (features and target standardized)
         
         Raises:
             RuntimeError: If transformer has not been fitted
@@ -217,7 +228,28 @@ class FeatureTransformer:
         if self.categorical_features:
             result, _ = encode_features(result, self.categorical_features, fit=False, encoder=self.encoder)
         
+        if self.target_column and self.target_column in result.columns and self.target_scaler is not None:
+            result[[self.target_column]] = self.target_scaler.transform(result[[self.target_column]])
+        
         return result
+    
+    def inverse_transform_target(self, y: np.ndarray) -> np.ndarray:
+        """
+        Inverse transform standardized target values back to original scale.
+        
+        Parameters:
+            y (np.ndarray): Standardized target values
+        
+        Returns:
+            np.ndarray: Target values in original scale
+        
+        Raises:
+            RuntimeError: If target_scaler is not available
+        """
+        if self.target_scaler is None:
+            raise RuntimeError("Target scaler not available (target_column not set or not fitted)")
+        
+        return self.target_scaler.inverse_transform(y.reshape(-1, 1)).flatten()
 
 
 def feature_pipeline(

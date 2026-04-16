@@ -89,9 +89,11 @@ def main():
         
         # Step 4: Feature engineering with anti-leakage fitting
         logger.info("Performing feature engineering (fit on train only)...")
+        target_column = config['data']['target_column']
         transformer = FeatureTransformer(
             datetime_column=config['data']['datetime_column'],
             numerical_features=config['data']['numerical_features'],
+            target_column=target_column,
             categorical_features=config['data']['categorical_features'] or None
         )
         
@@ -107,7 +109,6 @@ def main():
         window_size = config['features']['window_size']
         horizon = config['features']['forecast_horizon']
         step = config['features']['window_step']
-        target_column = config['data']['target_column']
         
         X_train, y_train = create_sliding_windows(train_data, target_column, window_size, horizon, step)
         X_val, y_val = create_sliding_windows(val_data, target_column, window_size, horizon, step)
@@ -126,21 +127,25 @@ def main():
         
         # Step 7: Train model
         logger.info("Training model...")
+        inverse_fn = transformer.inverse_transform_target
+        
         if config['training']['use_validation']:
             training_results = trainer.train(
                 X_train, y_train,
                 X_val, y_val,
-                model_type=config['model']['type']
+                model_type=config['model']['type'],
+                target_inverse_fn=inverse_fn
             )
         else:
             training_results = trainer.train(
                 X_train, y_train,
-                model_type=config['model']['type']
+                model_type=config['model']['type'],
+                target_inverse_fn=inverse_fn
             )
         
         # Step 8: Evaluate on test set
         logger.info("Evaluating model on test set...")
-        test_metrics = trainer.evaluate(X_test, y_test)
+        test_metrics = trainer.evaluate(X_test, y_test, target_inverse_fn=inverse_fn)
         
         # Step 9: Save model and results
         if config['training']['save_model']:

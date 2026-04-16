@@ -45,24 +45,26 @@ class Trainer:
     
     def train(
         self,
-        X_train: pd.DataFrame,
-        y_train: pd.Series,
-        X_val: Optional[pd.DataFrame] = None,
-        y_val: Optional[pd.Series] = None,
-        model_type: str = "xgboost"
+        X_train,
+        y_train,
+        X_val=None,
+        y_val=None,
+        model_type: str = "xgboost",
+        target_inverse_fn=None
     ) -> Dict[str, Any]:
         """
         Train the model.
         
         Parameters:
-            X_train (pd.DataFrame): Training features
-            y_train (pd.Series): Training target
-            X_val (pd.DataFrame): Validation features (optional)
-            y_val (pd.Series): Validation target (optional)
+            X_train: Training features
+            y_train: Training target (standardized)
+            X_val: Validation features (optional)
+            y_val: Validation target (optional, standardized)
             model_type (str): Type of model to train (default: "xgboost")
+            target_inverse_fn: Function to inverse transform target to original scale (optional)
         
         Returns:
-            Dict[str, Any]: Training results and metrics
+            Dict[str, Any]: Training results and metrics (in original scale)
         """
         self.logger.info(f"Starting {model_type} model training...")
         self.logger.info(f"Training data shape: {X_train.shape}")
@@ -88,18 +90,24 @@ class Trainer:
         
         if X_val is not None and y_val is not None:
             val_predictions = self.model.predict(X_val)
-            val_metrics = calculate_metrics(np.asarray(y_val), val_predictions)
+            y_val_orig, val_pred_orig = self._inverse_transform(
+                np.asarray(y_val), val_predictions, target_inverse_fn
+            )
+            val_metrics = calculate_metrics(y_val_orig, val_pred_orig)
             results['validation_metrics'] = val_metrics
             
-            self.logger.info("Validation Metrics:")
+            self.logger.info("Validation Metrics (original scale):")
             for metric, value in format_metrics(val_metrics).items():
                 self.logger.info(f"  {metric}: {value}")
         
         train_predictions = self.model.predict(X_train)
-        train_metrics = calculate_metrics(np.asarray(y_train), train_predictions)
+        y_train_orig, train_pred_orig = self._inverse_transform(
+            np.asarray(y_train), train_predictions, target_inverse_fn
+        )
+        train_metrics = calculate_metrics(y_train_orig, train_pred_orig)
         results['training_metrics'] = train_metrics
         
-        self.logger.info("Training Metrics:")
+        self.logger.info("Training Metrics (original scale):")
         for metric, value in format_metrics(train_metrics).items():
             self.logger.info(f"  {metric}: {value}")
         
@@ -108,20 +116,39 @@ class Trainer:
         
         return results
     
+    @staticmethod
+    def _inverse_transform(y_true_std, y_pred_std, fn):
+        """
+        Inverse transform standardized values to original scale.
+        
+        Parameters:
+            y_true_std: Standardized true values
+            y_pred_std: Standardized predicted values
+            fn: Inverse transform function, or None
+        
+        Returns:
+            Tuple of (y_true_original, y_pred_original)
+        """
+        if fn is not None:
+            return fn(y_true_std), fn(y_pred_std)
+        return y_true_std, y_pred_std
+    
     def evaluate(
         self,
-        X_test: pd.DataFrame,
-        y_test: pd.Series
+        X_test,
+        y_test,
+        target_inverse_fn=None
     ) -> Dict[str, float]:
         """
         Evaluate the model on test data.
         
         Parameters:
-            X_test (pd.DataFrame): Test features
-            y_test (pd.Series): Test target
+            X_test: Test features
+            y_test: Test target (standardized)
+            target_inverse_fn: Function to inverse transform target to original scale (optional)
         
         Returns:
-            Dict[str, float]: Evaluation metrics
+            Dict[str, float]: Evaluation metrics (in original scale)
         """
         if self.model is None:
             raise RuntimeError("Model must be trained before evaluation")
@@ -129,9 +156,12 @@ class Trainer:
         self.logger.info(f"Evaluating model on test data: {X_test.shape}")
         
         predictions = self.model.predict(X_test)
-        metrics = calculate_metrics(np.asarray(y_test), predictions)
+        y_test_orig, pred_orig = self._inverse_transform(
+            np.asarray(y_test), predictions, target_inverse_fn
+        )
+        metrics = calculate_metrics(y_test_orig, pred_orig)
         
-        self.logger.info("Test Metrics:")
+        self.logger.info("Test Metrics (original scale):")
         for metric, value in format_metrics(metrics).items():
             self.logger.info(f"  {metric}: {value}")
         
