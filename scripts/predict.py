@@ -2,62 +2,94 @@
 
 import argparse
 import os
+import joblib
 import pandas as pd
 import numpy as np
 
 from mlett.models.xgboost_model import XGBoostModel
+from mlett.data.preprocessing import clean_data
+from mlett.data.time_series_split import create_sliding_windows
 from mlett.utils.logger import setup_logger, get_timestamp
-from mlett.utils.io import save_dataframe
+from mlett.utils.io import save_yaml, load_yaml
 
 
 def make_predictions(
-    model_path: str,
+    experiment_dir: str,
     data_path: str,
     output_path: str
 ):
     """
-    Make predictions using a trained model.
+    Make predictions using a trained model from an experiment directory.
     
     Parameters:
-        model_path (str): Path to trained model
-        data_path (str): Path to input data
+        experiment_dir (str): Path to experiment directory
+        data_path (str): Path to raw input CSV data
         output_path (str): Path to save predictions
     """
-    # Setup logging
-    logger = setup_logger("Predict", f"logs/predict_{get_timestamp()}.log")
+    logger = setup_logger("Predict", os.path.join(experiment_dir, "predict.log"))
     
     try:
-        # Load model
+        # Load experiment artifacts
+        model_path = os.path.join(experiment_dir, "model.pkl")
+        transformer_path = os.path.join(experiment_dir, "transformer.pkl")
+        config_path = os.path.join(experiment_dir, "config.yaml")
+        
         logger.info(f"Loading model from: {model_path}")
         model = XGBoostModel()
         model.load_model(model_path)
         logger.info("Model loaded successfully")
         
-        # Load data
+        logger.info(f"Loading transformer from: {transformer_path}")
+        transformer = joblib.load(transformer_path)
+        logger.info("Transformer loaded successfully")
+        
+        config = load_yaml(config_path)
+        target_column = config['data']['target_column']
+        window_size = config['features']['window_size']
+        horizon = config['features']['forecast_horizon']
+        step = config['features']['window_step']
+        
+        # Load and preprocess raw data
         logger.info(f"Loading data from: {data_path}")
         data = pd.read_csv(data_path)
-        logger.info(f"Data shape: {data.shape}")
+        logger.info(f"Raw data shape: {data.shape}")
+        
+        data = clean_data(data)
+        logger.info(f"Cleaned data shape: {data.shape}")
+        
+        # Feature engineering using saved transformer
+        logger.info("Applying feature transformation...")
+        processed_data = transformer.transform(data)
+        logger.info(f"Processed data shape: {processed_data.shape}")
+        
+        # Build sliding window samples
+        logger.info("Building sliding window samples...")
+        X, y = create_sliding_windows(processed_data, target_column, window_size, horizon, step)
+        logger.info(f"Window samples shape: {X.shape}")
         
         # Make predictions
         logger.info("Making predictions...")
-        predictions = model.predict(data)
+        predictions = model.predict(X)
         logger.info(f"Generated {len(predictions)} predictions")
         
         # Create results DataFrame
         results = pd.DataFrame({
-            'prediction': predictions
+            'prediction': predictions.flatten()
         })
+        
+        if y is not None and len(y) > 0:
+            results['actual'] = y.flatten()
         
         # Save predictions
         logger.info(f"Saving predictions to: {output_path}")
-        save_dataframe(results, output_path)
+        results.to_csv(output_path, index=False)
         
         # Summary statistics
         logger.info("Prediction Statistics:")
-        logger.info(f"  Mean: {predictions.mean():.4f}")
-        logger.info(f"  Std: {predictions.std():.4f}")
-        logger.info(f"  Min: {predictions.min():.4f}")
-        logger.info(f"  Max: {predictions.max():.4f}")
+        logger.info(f"  Mean: {float(predictions.mean()):.4f}")
+        logger.info(f"  Std:  {float(predictions.std()):.4f}")
+        logger.info(f"  Min:  {float(predictions.min()):.4f}")
+        logger.info(f"  Max:  {float(predictions.max()):.4f}")
         
         return predictions
         
@@ -69,25 +101,25 @@ def make_predictions(
 def main():
     """Main prediction function."""
     parser = argparse.ArgumentParser(description='Make predictions with trained model')
-    parser.add_argument('--model', type=str, required=True,
-                        help='Path to trained model file')
-    parser.add_argument('--data', type=str, required=True,
-                        help='Path to input data file')
-    parser.add_argument('--output', type=str, required=True,
-                        help='Path to save predictions file')
+    parser.add_argument('--experiment', type=str, required=True,
+                        help='Path to experiment directory (e.g. results/20260414_210510)')
+    parser.add_argument('--input', type=str, required=True,
+                        help='Path to raw input CSV data file')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Path to save predictions file (default: <experiment>/predictions.csv)')
     
     args = parser.parse_args()
     
-    # Create output directory if needed
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_path = args.output or os.path.join(args.experiment, "predictions.csv")
+    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
     
     predictions = make_predictions(
-        args.model,
-        args.data,
-        args.output
+        args.experiment,
+        args.input,
+        output_path
     )
     
-    print(f"Predictions completed. Results saved to {args.output}")
+    print(f"Predictions completed. Results saved to {output_path}")
     return predictions
 
 
