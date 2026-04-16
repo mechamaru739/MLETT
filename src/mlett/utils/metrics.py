@@ -42,7 +42,7 @@ def calculate_metrics(
     else:
         metrics['SMAPE'] = np.nan
     
-    return metrics
+    return {k: float(v) for k, v in metrics.items()}
 
 
 def format_metrics(metrics: Dict[str, float], precision: int = 4) -> Dict[str, str]:
