@@ -94,9 +94,13 @@ class XGBoostModel(BaseModel):
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before getting feature importance")
         
+        importances = self.feature_importances_
+        if importances is None and hasattr(self.model, 'feature_importances_'):
+            importances = self.model.feature_importances_
+        
         importance_df = pd.DataFrame({
             'feature': self.feature_columns,
-            'importance': self.feature_importances_
+            'importance': importances
         }).sort_values('importance', ascending=False)
         
         return importance_df

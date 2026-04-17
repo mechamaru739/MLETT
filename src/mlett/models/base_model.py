@@ -63,7 +63,8 @@ class BaseModel(abc.ABC):
             'model': self.model,
             'model_params': self.model_params,
             'feature_columns': self.feature_columns,
-            'is_fitted': self.is_fitted
+            'is_fitted': self.is_fitted,
+            'feature_importances_': getattr(self, 'feature_importances_', None)
         }
         
         joblib.dump(model_data, filepath)
@@ -81,6 +82,7 @@ class BaseModel(abc.ABC):
         self.model_params = model_data['model_params']
         self.feature_columns = model_data['feature_columns']
         self.is_fitted = model_data['is_fitted']
+        self.feature_importances_ = model_data.get('feature_importances_')
     
     def get_params(self) -> Dict[str, Any]:
         """
