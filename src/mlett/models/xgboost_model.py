@@ -32,7 +32,19 @@ class XGBoostModel(BaseModel):
             default_params.update(model_params)
         
         super().__init__(default_params)
-        self.feature_importances_ = None
+    
+    @property
+    def native_model(self):
+        """
+        Expose the underlying XGBRegressor instance.
+        
+        Use this to access framework-specific features:
+            xgb.plot_importance(model.native_model)
+            booster = model.native_model.get_booster()
+        
+        Returns None if the model has not been initialized yet.
+        """
+        return self._estimator
     
     def fit(self, X, y, eval_set: Optional[tuple] = None):
         """
@@ -48,19 +60,18 @@ class XGBoostModel(BaseModel):
         else:
             self.feature_columns = [f'feature_{i}' for i in range(X.shape[1])]
         
-        self.model = xgb.XGBRegressor(**self.model_params)
+        self._estimator = xgb.XGBRegressor(**self.model_params)
         
         if eval_set:
             X_val, y_val = eval_set
-            self.model.fit(
+            self._estimator.fit(
                 X, y,
                 eval_set=[(X_val, y_val)],
                 verbose=False
             )
         else:
-            self.model.fit(X, y)
+            self._estimator.fit(X, y)
         
-        self.feature_importances_ = self.model.feature_importances_
         self.is_fitted = True
     
     def predict(self, X) -> np.ndarray:
@@ -79,7 +90,7 @@ class XGBoostModel(BaseModel):
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before making predictions")
         
-        return self.model.predict(X)
+        return self._estimator.predict(X)
     
     def get_feature_importance(self) -> pd.DataFrame:
         """
@@ -94,9 +105,7 @@ class XGBoostModel(BaseModel):
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before getting feature importance")
         
-        importances = self.feature_importances_
-        if importances is None and hasattr(self.model, 'feature_importances_'):
-            importances = self.model.feature_importances_
+        importances = self.native_model.feature_importances_
         
         importance_df = pd.DataFrame({
             'feature': self.feature_columns,

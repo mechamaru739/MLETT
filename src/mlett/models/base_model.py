@@ -18,9 +18,15 @@ class BaseModel(abc.ABC):
             model_params (Dict[str, Any]): Model parameters (optional)
         """
         self.model_params = model_params or {}
-        self.model = None
+        self._estimator = None
         self.feature_columns = None
         self.is_fitted = False
+    
+    @property
+    @abc.abstractmethod
+    def native_model(self):
+        """Return the underlying native model instance (e.g. XGBRegressor, nn.Module)."""
+        pass
     
     @abc.abstractmethod
     def fit(self, X: pd.DataFrame, y: pd.Series):
@@ -59,12 +65,16 @@ class BaseModel(abc.ABC):
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before saving")
         
+        feature_importances = None
+        if self._estimator is not None and hasattr(self._estimator, 'feature_importances_'):
+            feature_importances = self._estimator.feature_importances_
+        
         model_data = {
-            'model': self.model,
+            'model': self._estimator,
             'model_params': self.model_params,
             'feature_columns': self.feature_columns,
             'is_fitted': self.is_fitted,
-            'feature_importances_': getattr(self, 'feature_importances_', None)
+            'feature_importances_': feature_importances
         }
         
         joblib.dump(model_data, filepath)
@@ -78,7 +88,7 @@ class BaseModel(abc.ABC):
         """
         model_data = joblib.load(filepath)
         
-        self.model = model_data['model']
+        self._estimator = model_data.get('model')
         self.model_params = model_data['model_params']
         self.feature_columns = model_data['feature_columns']
         self.is_fitted = model_data['is_fitted']
