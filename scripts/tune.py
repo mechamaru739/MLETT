@@ -95,6 +95,11 @@ def main():
     # Load base configuration
     base_config = load_config(tune_config['base_config'])
     
+    # Create timestamped tune directory
+    tune_dir_name = f"tune_{get_timestamp()}"
+    tune_dir = os.path.join(base_config['paths']['results_dir'], tune_dir_name)
+    os.makedirs(tune_dir, exist_ok=True)
+    
     # Generate parameter grid
     param_space = tune_config['param_space']
     param_combos = generate_grid(param_space)
@@ -113,13 +118,14 @@ def main():
     for k, v in param_space.items():
         print(f"  {k}: {v}")
     print(f"Total experiments: {total}")
+    print(f"Results directory: {tune_dir}")
     print("=" * 70)
     
     # Run experiments
     all_results = []
     best_metric = float('inf')
     best_experiment = None
-    metric_name = 'RMSE'  # Metric to optimize (lower is better)
+    metric_name = 'RMSE'
     
     for i, param_update in enumerate(param_combos):
         print(f"\n{'=' * 70}")
@@ -127,10 +133,11 @@ def main():
         print(f"Parameters: {param_update}")
         print(f"{'=' * 70}")
         
-        # Update config with current parameters
+        # Update config with current parameters and route results to tune directory
         config = deep_update(copy.deepcopy(base_config), {
             'model': {'xgboost': param_update}
         })
+        config['paths']['results_dir'] = tune_dir
         
         # Reset random seed for fair comparison
         set_random_seed(tune_config.get('random_seed', 42))
@@ -144,14 +151,15 @@ def main():
             result['param_update'] = param_update
             all_results.append(result)
             
-            # Track best experiment
-            if metric_name in result.get('test_metrics', {}):
-                metric_value = result['test_metrics'][metric_name]
+            # Track best experiment by validation metrics
+            val_metrics = result.get('training_results', {}).get('validation_metrics', {})
+            if metric_name in val_metrics:
+                metric_value = val_metrics[metric_name]
                 if metric_value < best_metric:
                     best_metric = metric_value
                     best_experiment = result
             
-            print(f"\nExperiment {i + 1} completed: {metric_name}={metric_value:.4f}")
+            print(f"\nExperiment {i + 1} completed: val_{metric_name}={val_metrics.get(metric_name, 'N/A')}")
             
         except Exception as e:
             print(f"\nExperiment {i + 1} FAILED: {str(e)}")
@@ -162,34 +170,30 @@ def main():
                 'error': str(e)
             })
     
-    # Save comparison results
-    comparison = {
-        'tune_method': tune_config['tune_method'],
-        'base_config': tune_config['base_config'],
-        'param_space': param_space,
-        'total_experiments': total,
-        'optimization_metric': metric_name,
-        'best_experiment': best_experiment['experiment_name'] if best_experiment else None,
-        'best_metric_value': float(best_metric) if best_metric != float('inf') else None,
-        'experiments': []
-    }
-    
-    for result in all_results:
-        entry = {
-            'name': result.get('experiment_name', 'unknown'),
-            'params': result.get('param_update', {}),
-            'status': result.get('status', 'unknown')
+    # Save best results only
+    if best_experiment:
+        best_val_metrics = best_experiment.get('training_results', {}).get('validation_metrics', {})
+        comparison = {
+            'best_experiment': best_experiment['experiment_name'],
+            'best_params': best_experiment.get('param_update', {}),
+            'best_validation_metrics': best_val_metrics,
+            'optimization_metric': f"val_{metric_name}",
+            'best_metric_value': float(best_metric),
+            'total_experiments': total,
+            'timestamp': get_timestamp()
         }
-        if 'test_metrics' in result:
-            entry['test_metrics'] = result['test_metrics']
-        if 'error' in result:
-            entry['error'] = result['error']
-        comparison['experiments'].append(entry)
+    else:
+        comparison = {
+            'best_experiment': None,
+            'best_params': None,
+            'best_validation_metrics': None,
+            'optimization_metric': f"val_{metric_name}",
+            'best_metric_value': None,
+            'total_experiments': total,
+            'timestamp': get_timestamp()
+        }
     
-    # Save comparison file
-    results_dir = base_config['paths']['results_dir']
-    os.makedirs(results_dir, exist_ok=True)
-    comparison_path = os.path.join(results_dir, "tune_comparison.yaml")
+    comparison_path = os.path.join(tune_dir, "tune_comparison.yaml")
     save_yaml(comparison, comparison_path)
     
     # Print summary
@@ -197,14 +201,19 @@ def main():
     print("TUNING SUMMARY")
     print("=" * 70)
     print(f"Total experiments: {total}")
-    print(f"Optimization metric: {metric_name} (lower is better)")
+    print(f"Optimization metric: val_{metric_name} (lower is better)")
     
     if best_experiment:
+        best_val_metrics = best_experiment.get('training_results', {}).get('validation_metrics', {})
         print(f"\nBest experiment: {best_experiment['experiment_name']}")
-        print(f"Best {metric_name}: {best_metric:.4f}")
+        print(f"Best val_{metric_name}: {best_metric:.4f}")
         print(f"Best params: {best_experiment.get('param_update', {})}")
+        print("Full validation metrics:")
+        for k, v in best_val_metrics.items():
+            print(f"  {k}: {v}")
     
-    print(f"\nComparison saved to: {comparison_path}")
+    print(f"\nAll results saved to: {tune_dir}")
+    print(f"Best results summary: {comparison_path}")
     print("=" * 70)
     
     return all_results
