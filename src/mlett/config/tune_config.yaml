@@ -1,0 +1,24 @@
+# MLETT Hyperparameter Tuning Configuration
+# Grid search: all combinations of parameters in param_space are evaluated.
+
+# Base configuration file to inherit data/split/features settings
+base_config: "src/mlett/config/config.yaml"
+
+# Random seed reset before each experiment (ensures fair comparison)
+random_seed: 42
+
+# Tuning method: "grid" only (cartesian product of param_space)
+tune_method: "grid"
+
+# Parameter search space (overrides model.xgboost in base_config)
+# Only list parameters you want to tune; others keep their base_config values.
+# Adjust the number of values to control total experiments:
+#   2^6 = 64 experiments  (recommended starting point)
+#   3^6 = 729 experiments (very thorough, takes hours)
+param_space:
+  max_depth: [3, 5]
+  learning_rate: [0.01, 0.05]
+  n_estimators: [500, 1000]
+  min_child_weight: [3, 10]
+  reg_alpha: [0.1, 1.0]
+  reg_lambda: [1.0, 5.0]

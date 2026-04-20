@@ -44,6 +44,9 @@ models/*.pkl
 logs/*.log
 results/*.yaml
 results/*.csv
+results/
+doc/
+notebook/
 
 # OS
 .DS_Store
