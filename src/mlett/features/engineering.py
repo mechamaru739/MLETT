@@ -24,21 +24,21 @@ def extract_time_features(data: pd.DataFrame, datetime_column: str) -> pd.DataFr
     
     result[datetime_column] = pd.to_datetime(result[datetime_column])
     
-    result['hour'] = result[datetime_column].dt.hour
+    hour = result[datetime_column].dt.hour
+    month = result[datetime_column].dt.month
+
     result['day'] = result[datetime_column].dt.day
     result['day_of_week'] = result[datetime_column].dt.dayofweek
     result['day_of_year'] = result[datetime_column].dt.dayofyear
-    result['month'] = result[datetime_column].dt.month
     result['quarter'] = result[datetime_column].dt.quarter
-    result['year'] = result[datetime_column].dt.year
     
     result['is_weekend'] = (result['day_of_week'] >= 5).astype(int)
     
-    result['hour_sin'] = np.sin(2 * np.pi * result['hour'] / 24)
-    result['hour_cos'] = np.cos(2 * np.pi * result['hour'] / 24)
+    result['hour_sin'] = np.sin(2 * np.pi * hour / 24)
+    result['hour_cos'] = np.cos(2 * np.pi * hour / 24)
     
-    result['month_sin'] = np.sin(2 * np.pi * result['month'] / 12)
-    result['month_cos'] = np.cos(2 * np.pi * result['month'] / 12)
+    result['month_sin'] = np.sin(2 * np.pi * month / 12)
+    result['month_cos'] = np.cos(2 * np.pi * month / 12)
     
     result = result.drop(columns=[datetime_column])
     

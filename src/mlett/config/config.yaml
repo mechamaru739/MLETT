@@ -53,23 +53,23 @@ model:
   # XGBoost parameters (optimized for ETT dataset, anti-overfitting)
   xgboost:
     # --- Objective & hardware ---
-    objective: "reg:squarederror"
+    objective: "reg:absoluteerror"
     random_state: 42
     n_jobs: -1
     tree_method: "hist"              # Histogram algorithm: faster + inherent regularization
     
     # --- Training strategy (low LR + high n_estimators) ---
-    learning_rate: 0.01               # Small steps for stable convergence
-    n_estimators: 1000                # More trees to compensate low LR
+    learning_rate: 0.001               # Small steps for stable convergence
+    n_estimators: 500                # More trees to compensate low LR
     early_stopping_rounds: 50         # Longer patience for low LR
     
     # --- Complexity control (core anti-overfitting) ---
-    max_depth: 4                      # Shallow trees prevent memorizing noise
-    min_child_weight: 5                # Minimum samples per leaf prevents extreme splits
+    max_depth: 5                      # Shallow trees prevent memorizing noise
+    min_child_weight: 3                # Minimum samples per leaf prevents extreme splits
     
     # --- Stochastic subsampling ---
     subsample: 0.7                   # Row sampling per tree
-    colsample_bytree: 0.4            # Column sampling per tree (important for 432-dim input)
+    colsample_bytree: 0.4            # Column sampling per tree (important for high-dim input)
     colsample_bylevel: 0.7           # Column sampling per split level
     
     # --- Regularization (suppress overfitting) ---
