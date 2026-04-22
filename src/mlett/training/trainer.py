@@ -50,24 +50,33 @@ class Trainer:
         X_val=None,
         y_val=None,
         model_type: str = "xgboost",
-        target_inverse_fn=None
+        target_inverse_fn=None,
+        y_train_baseline=None,
+        y_val_baseline=None
     ) -> Dict[str, Any]:
         """
         Train the model.
         
         Parameters:
             X_train: Training features
-            y_train: Training target (standardized)
+            y_train: Training target (standardized; delta values if target_mode="delta")
             X_val: Validation features (optional)
-            y_val: Validation target (optional, standardized)
+            y_val: Validation target (optional, standardized; delta values if target_mode="delta")
             model_type (str): Type of model to train (default: "xgboost")
             target_inverse_fn: Function to inverse transform target to original scale (optional)
+            y_train_baseline: Baseline values for delta mode reconstruction (optional)
+                Shape must match y_train. In delta mode: absolute_std = y_delta_std + y_baseline_std
+            y_val_baseline: Baseline values for delta mode on validation set (optional)
+                Shape must match y_val.
         
         Returns:
             Dict[str, Any]: Training results and metrics (in original scale)
         """
         self.logger.info(f"Starting {model_type} model training...")
         self.logger.info(f"Training data shape: {X_train.shape}")
+        is_delta = y_train_baseline is not None
+        if is_delta:
+            self.logger.info("Target mode: delta (predicting OT[t+h] - OT[t+h-1])")
         
         if model_type == "xgboost":
             self.model = XGBoostModel(self.model_params)
@@ -85,14 +94,24 @@ class Trainer:
             'model_type': model_type,
             'training_samples': len(X_train),
             'feature_count': X_train.shape[1],
+            'target_mode': 'delta' if is_delta else 'absolute',
             'timestamp': get_timestamp()
         }
         
         if X_val is not None and y_val is not None:
             val_predictions = self.model.predict(X_val)
-            y_val_orig, val_pred_orig = self._inverse_transform(
-                np.asarray(y_val), val_predictions, target_inverse_fn
-            )
+            if is_delta and y_val_baseline is not None:
+                y_val_flat = np.asarray(y_val).flatten()
+                baseline_flat = np.asarray(y_val_baseline).flatten()
+                y_val_abs = y_val_flat + baseline_flat
+                val_pred_abs = val_predictions + baseline_flat
+                y_val_orig, val_pred_orig = self._inverse_transform(
+                    y_val_abs, val_pred_abs, target_inverse_fn
+                )
+            else:
+                y_val_orig, val_pred_orig = self._inverse_transform(
+                    np.asarray(y_val), val_predictions, target_inverse_fn
+                )
             val_metrics = calculate_metrics(y_val_orig, val_pred_orig)
             results['validation_metrics'] = val_metrics
             
@@ -101,9 +120,18 @@ class Trainer:
                 self.logger.info(f"  {metric}: {value}")
         
         train_predictions = self.model.predict(X_train)
-        y_train_orig, train_pred_orig = self._inverse_transform(
-            np.asarray(y_train), train_predictions, target_inverse_fn
-        )
+        if is_delta and y_train_baseline is not None:
+            y_train_flat = np.asarray(y_train).flatten()
+            baseline_flat = np.asarray(y_train_baseline).flatten()
+            y_train_abs = y_train_flat + baseline_flat
+            train_pred_abs = train_predictions + baseline_flat
+            y_train_orig, train_pred_orig = self._inverse_transform(
+                y_train_abs, train_pred_abs, target_inverse_fn
+            )
+        else:
+            y_train_orig, train_pred_orig = self._inverse_transform(
+                np.asarray(y_train), train_predictions, target_inverse_fn
+            )
         train_metrics = calculate_metrics(y_train_orig, train_pred_orig)
         results['training_metrics'] = train_metrics
         
@@ -137,15 +165,18 @@ class Trainer:
         self,
         X_test,
         y_test,
-        target_inverse_fn=None
+        target_inverse_fn=None,
+        y_baseline=None
     ) -> Dict[str, float]:
         """
         Evaluate the model on test data.
         
         Parameters:
             X_test: Test features
-            y_test: Test target (standardized)
+            y_test: Test target (standardized; delta values if target_mode="delta")
             target_inverse_fn: Function to inverse transform target to original scale (optional)
+            y_baseline: Baseline values for delta mode reconstruction (optional)
+                Shape must match y_test. In delta mode: absolute_std = y_delta_std + y_baseline_std
         
         Returns:
             Dict[str, float]: Evaluation metrics (in original scale)
@@ -153,12 +184,25 @@ class Trainer:
         if self.model is None:
             raise RuntimeError("Model must be trained before evaluation")
         
+        is_delta = y_baseline is not None
         self.logger.info(f"Evaluating model on test data: {X_test.shape}")
+        if is_delta:
+            self.logger.info("Target mode: delta (reconstructing absolute values from delta + baseline)")
         
         predictions = self.model.predict(X_test)
-        y_test_orig, pred_orig = self._inverse_transform(
-            np.asarray(y_test), predictions, target_inverse_fn
-        )
+        
+        if is_delta and y_baseline is not None:
+            y_flat = np.asarray(y_test).flatten()
+            baseline_flat = np.asarray(y_baseline).flatten()
+            y_abs = y_flat + baseline_flat
+            pred_abs = predictions + baseline_flat
+            y_test_orig, pred_orig = self._inverse_transform(
+                y_abs, pred_abs, target_inverse_fn
+            )
+        else:
+            y_test_orig, pred_orig = self._inverse_transform(
+                np.asarray(y_test), predictions, target_inverse_fn
+            )
         metrics = calculate_metrics(y_test_orig, pred_orig)
         
         self.logger.info("Test Metrics (original scale):")

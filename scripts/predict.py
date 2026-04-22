@@ -48,6 +48,9 @@ def make_predictions(
         window_size = config['features']['window_size']
         horizon = config['features']['forecast_horizon']
         step = config['features']['window_step']
+        target_mode = config.get('features', {}).get('target_mode', 'absolute')
+        
+        logger.info(f"Target mode: {target_mode}")
         
         # Load and preprocess raw data
         logger.info(f"Loading data from: {data_path}")
@@ -64,16 +67,33 @@ def make_predictions(
         
         # Build sliding window samples
         logger.info("Building sliding window samples...")
-        X, y = create_sliding_windows(processed_data, target_column, window_size, horizon, step)
-        logger.info(f"Window samples shape: {X.shape}")
+        if target_mode == "delta":
+            X, y, y_baseline = create_sliding_windows(
+                processed_data, target_column, window_size, horizon, step, target_mode="delta"
+            )
+        else:
+            X, y = create_sliding_windows(
+                processed_data, target_column, window_size, horizon, step, target_mode="absolute"
+            )
+            y_baseline = None
+        logger.info(f"Window samples shape: X={X.shape}")
         
         # Make predictions
         logger.info("Making predictions...")
         predictions_std = model.predict(X)
         logger.info(f"Generated {len(predictions_std)} predictions")
         
-        # Inverse transform predictions to original scale
-        predictions = transformer.inverse_transform_target(predictions_std)
+        # Reconstruct absolute values and inverse transform to original scale
+        inverse_fn = transformer.inverse_transform_target
+        
+        if target_mode == "delta" and y_baseline is not None:
+            logger.info("Delta mode: reconstructing absolute values from delta + baseline")
+            baseline_flat = y_baseline.flatten()
+            pred_abs_std = predictions_std + baseline_flat
+            predictions = inverse_fn(pred_abs_std)
+        else:
+            predictions = inverse_fn(predictions_std)
+        
         logger.info("Predictions inverse-transformed to original scale")
         
         # Create results DataFrame
@@ -82,8 +102,13 @@ def make_predictions(
         })
         
         if y is not None and len(y) > 0:
-            y_original = transformer.inverse_transform_target(y)
-            results['actual'] = y_original.flatten()
+            if target_mode == "delta" and y_baseline is not None:
+                y_flat = y.flatten()
+                baseline_flat = y_baseline.flatten()
+                y_abs = y_flat + baseline_flat
+                results['actual'] = inverse_fn(y_abs).flatten()
+            else:
+                results['actual'] = inverse_fn(y).flatten()
         
         # Save predictions
         logger.info(f"Saving predictions to: {output_path}")

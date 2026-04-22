@@ -47,6 +47,9 @@ def evaluate_model(
         window_size = config['features']['window_size']
         horizon = config['features']['forecast_horizon']
         step = config['features']['window_step']
+        target_mode = config.get('features', {}).get('target_mode', 'absolute')
+        
+        logger.info(f"Target mode: {target_mode}")
         
         # Load and preprocess raw data
         logger.info(f"Loading data from: {data_path}")
@@ -63,16 +66,36 @@ def evaluate_model(
         
         # Build sliding window samples
         logger.info("Building sliding window samples...")
-        X, y = create_sliding_windows(processed_data, target_column, window_size, horizon, step)
+        if target_mode == "delta":
+            X, y, y_baseline = create_sliding_windows(
+                processed_data, target_column, window_size, horizon, step, target_mode="delta"
+            )
+        else:
+            X, y = create_sliding_windows(
+                processed_data, target_column, window_size, horizon, step, target_mode="absolute"
+            )
+            y_baseline = None
         logger.info(f"Window samples shape: X={X.shape}, y={y.shape}")
         
         # Make predictions
         logger.info("Making predictions...")
         predictions_std = model.predict(X)
         
-        # Inverse transform to original scale for metrics
-        y_original = transformer.inverse_transform_target(y)
-        predictions_original = transformer.inverse_transform_target(predictions_std)
+        # Reconstruct absolute values and inverse transform to original scale
+        inverse_fn = transformer.inverse_transform_target
+        
+        if target_mode == "delta" and y_baseline is not None:
+            logger.info("Delta mode: reconstructing absolute values from delta + baseline")
+            y_flat = y.flatten()
+            baseline_flat = y_baseline.flatten()
+            y_abs = y_flat + baseline_flat
+            pred_abs = predictions_std + baseline_flat
+            y_original = inverse_fn(y_abs)
+            predictions_original = inverse_fn(pred_abs)
+        else:
+            y_original = inverse_fn(y)
+            predictions_original = inverse_fn(predictions_std)
+        
         logger.info("Predictions and targets inverse-transformed to original scale")
         
         # Calculate metrics in original scale
@@ -87,12 +110,14 @@ def evaluate_model(
         # Save results
         results = {
             'data_path': data_path,
+            'target_mode': target_mode,
             'metrics': metrics,
             'sample_count': len(X),
             'sample_definition': {
                 'window_size': window_size,
                 'forecast_horizon': horizon,
-                'window_step': step
+                'window_step': step,
+                'target_mode': target_mode
             },
             'timestamp': get_timestamp()
         }

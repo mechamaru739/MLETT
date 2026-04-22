@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 
 def time_series_split(
@@ -46,13 +46,18 @@ def create_sliding_windows(
     target_column: str,
     window_size: int = 24,
     horizon: int = 1,
-    step: int = 1
-) -> Tuple[np.ndarray, np.ndarray]:
+    step: int = 1,
+    target_mode: str = "absolute"
+) -> Tuple[np.ndarray, ...]:
     """
     Create sliding windows for time series forecasting.
     
     Each sample consists of `window_size` consecutive rows of all feature columns,
     and the target is the `horizon`-step-ahead value of the target column.
+    
+    In "absolute" mode, y[i] = OT[t + window_size] (direct value).
+    In "delta" mode, y[i] = OT[t + window_size] - OT[t + window_size - 1] (difference),
+    and y_baseline[i] = OT[t + window_size - 1] (last target in window for reconstruction).
     
     Parameters:
         data (pd.DataFrame): The time series data
@@ -60,24 +65,47 @@ def create_sliding_windows(
         window_size (int): Size of the input window (default: 24)
         horizon (int): Forecast horizon (default: 1)
         step (int): Step size between windows (default: 1)
+        target_mode (str): "absolute" or "delta" (default: "absolute")
     
     Returns:
-        Tuple[np.ndarray, np.ndarray]: Features (X) and targets (y) arrays
-                X shape: (n_samples, window_size * n_features)
-                y shape: (n_samples, horizon)
+        In "absolute" mode: (X, y)
+            X shape: (n_samples, window_size * n_features)
+            y shape: (n_samples, horizon)
+        In "delta" mode: (X, y, y_baseline)
+            y shape: (n_samples, horizon) — delta targets
+            y_baseline shape: (n_samples, horizon) — baseline for reconstruction
+    
+    Raises:
+        ValueError: If target_mode is not "absolute" or "delta"
     """
+    if target_mode not in ("absolute", "delta"):
+        raise ValueError(f"target_mode must be 'absolute' or 'delta', got '{target_mode}'")
+    
     feature_cols = [col for col in data.columns if col != target_column]
     
-    X, y = [], []
+    X, y, y_baseline = [], [], []
     
     for i in range(0, len(data) - window_size - horizon + 1, step):
         window_features = data[feature_cols].iloc[i:i + window_size].values
         window_target = data[target_column].iloc[i + window_size:i + window_size + horizon].values
         
         X.append(window_features.flatten())
-        y.append(window_target.flatten())
+        
+        if target_mode == "delta":
+            baseline = data[target_column].iloc[i + window_size - 1]
+            delta = window_target - baseline
+            y.append(delta.flatten())
+            y_baseline.append(np.full(horizon, baseline))
+        else:
+            y.append(window_target.flatten())
     
-    return np.array(X), np.array(y)
+    X_arr = np.array(X)
+    y_arr = np.array(y)
+    
+    if target_mode == "delta":
+        return X_arr, y_arr, np.array(y_baseline)
+    
+    return X_arr, y_arr
 
 
 def create_rolling_features(

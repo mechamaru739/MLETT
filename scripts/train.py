@@ -62,12 +62,17 @@ def run_training(config: dict, experiment_name: str) -> dict:
         logger.info(f"  {k}: {v}")
     logger.info("=" * 60)
     
+    # Determine target mode
+    target_mode = config.get('features', {}).get('target_mode', 'absolute')
     logger.info("=" * 60)
     logger.info("SAMPLE DEFINITION (Sliding Window):")
     logger.info("  Input X:  past window_size hours of all features")
     logger.info("  Output y: future forecast_horizon hours of OT")
     logger.info(f"  window_size = {config['features']['window_size']}")
     logger.info(f"  forecast_horizon = {config['features']['forecast_horizon']}")
+    logger.info(f"  target_mode = {target_mode}")
+    if target_mode == "delta":
+        logger.info("  (delta mode: y = OT[t+h] - OT[t+h-1], baseline = OT[t+h-1] for reconstruction)")
     logger.info("=" * 60)
     
     # Step 1: Load data
@@ -114,11 +119,32 @@ def run_training(config: dict, experiment_name: str) -> dict:
     horizon = config['features']['forecast_horizon']
     step = config['features']['window_step']
     
-    X_train, y_train = create_sliding_windows(train_data, target_column, window_size, horizon, step)
-    X_val, y_val = create_sliding_windows(val_data, target_column, window_size, horizon, step)
-    X_test, y_test = create_sliding_windows(test_data, target_column, window_size, horizon, step)
+    if target_mode == "delta":
+        X_train, y_train, y_train_baseline = create_sliding_windows(
+            train_data, target_column, window_size, horizon, step, target_mode="delta"
+        )
+        X_val, y_val, y_val_baseline = create_sliding_windows(
+            val_data, target_column, window_size, horizon, step, target_mode="delta"
+        )
+        X_test, y_test, y_test_baseline = create_sliding_windows(
+            test_data, target_column, window_size, horizon, step, target_mode="delta"
+        )
+        logger.info(f"Delta mode: y shape = {y_train.shape}, y_baseline shape = {y_train_baseline.shape}")
+    else:
+        X_train, y_train = create_sliding_windows(
+            train_data, target_column, window_size, horizon, step, target_mode="absolute"
+        )
+        y_train_baseline = None
+        X_val, y_val = create_sliding_windows(
+            val_data, target_column, window_size, horizon, step, target_mode="absolute"
+        )
+        y_val_baseline = None
+        X_test, y_test = create_sliding_windows(
+            test_data, target_column, window_size, horizon, step, target_mode="absolute"
+        )
+        y_test_baseline = None
     
-    logger.info(f"Window samples -> Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+    logger.info(f"Window samples -> Train: X={X_train.shape}, Val: X={X_val.shape}, Test: X={X_test.shape}")
     logger.info(f"Target shapes -> Train y: {y_train.shape}, Val y: {y_val.shape}, Test y: {y_test.shape}")
     logger.info(f"Each sample: {window_size} time steps x {X_train.shape[1] // window_size} features = {X_train.shape[1]} dimensions")
     
@@ -138,18 +164,25 @@ def run_training(config: dict, experiment_name: str) -> dict:
             X_train, y_train,
             X_val, y_val,
             model_type=config['model']['type'],
-            target_inverse_fn=inverse_fn
+            target_inverse_fn=inverse_fn,
+            y_train_baseline=y_train_baseline,
+            y_val_baseline=y_val_baseline
         )
     else:
         training_results = trainer.train(
             X_train, y_train,
             model_type=config['model']['type'],
-            target_inverse_fn=inverse_fn
+            target_inverse_fn=inverse_fn,
+            y_train_baseline=y_train_baseline
         )
     
     # Step 8: Evaluate on test set
     logger.info("Evaluating model on test set...")
-    test_metrics = trainer.evaluate(X_test, y_test, target_inverse_fn=inverse_fn)
+    test_metrics = trainer.evaluate(
+        X_test, y_test,
+        target_inverse_fn=inverse_fn,
+        y_baseline=y_test_baseline
+    )
     
     # Step 9: Save model and results
     if config['training']['save_model']:
@@ -179,6 +212,7 @@ def run_training(config: dict, experiment_name: str) -> dict:
                 'forecast_horizon': horizon,
                 'window_step': step,
                 'input_dimensions': X_train.shape[1],
+                'target_mode': target_mode,
                 'description': f'Each sample uses past {window_size} hours of features to predict next {horizon} hour(s) of OT'
             },
             'model_params': config['model']['xgboost'],

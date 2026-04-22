@@ -45,6 +45,9 @@ features:
   window_size: 24
   forecast_horizon: 1
   window_step: 1
+  
+  # Target mode: "absolute" predicts OT directly, "delta" predicts OT[t+h] - OT[t+h-1]
+  target_mode: "delta"
 
 # Model configuration
 model:
