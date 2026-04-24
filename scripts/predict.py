@@ -9,6 +9,7 @@ import numpy as np
 from mlett.models.xgboost_model import XGBoostModel
 from mlett.data.preprocessing import clean_data
 from mlett.data.time_series_split import create_sliding_windows
+from mlett.features.industrial_features import create_industrial_windows, TIME_FEATURE_COLUMNS
 from mlett.utils.logger import setup_logger, get_timestamp
 from mlett.utils.io import save_yaml, load_yaml
 
@@ -49,7 +50,11 @@ def make_predictions(
         horizon = config['features']['forecast_horizon']
         step = config['features']['window_step']
         target_mode = config.get('features', {}).get('target_mode', 'absolute')
+        feature_mode = config.get('features', {}).get('feature_mode', 'flat')
+        sensor_columns = config['data']['numerical_features']
+        time_columns = config.get('features', {}).get('time_columns', TIME_FEATURE_COLUMNS)
         
+        logger.info(f"Feature mode: {feature_mode}")
         logger.info(f"Target mode: {target_mode}")
         
         # Load and preprocess raw data
@@ -65,17 +70,30 @@ def make_predictions(
         processed_data = transformer.transform(data)
         logger.info(f"Processed data shape: {processed_data.shape}")
         
-        # Build sliding window samples
-        logger.info("Building sliding window samples...")
-        if target_mode == "delta":
-            X, y, y_baseline = create_sliding_windows(
-                processed_data, target_column, window_size, horizon, step, target_mode="delta"
-            )
+        # Build window samples
+        logger.info("Building window samples...")
+        if feature_mode == "industrial":
+            if target_mode == "delta":
+                X, y, y_baseline = create_industrial_windows(
+                    processed_data, sensor_columns, time_columns, target_column,
+                    window_size, horizon, step, target_mode="delta"
+                )
+            else:
+                X, y = create_industrial_windows(
+                    processed_data, sensor_columns, time_columns, target_column,
+                    window_size, horizon, step, target_mode="absolute"
+                )
+                y_baseline = None
         else:
-            X, y = create_sliding_windows(
-                processed_data, target_column, window_size, horizon, step, target_mode="absolute"
-            )
-            y_baseline = None
+            if target_mode == "delta":
+                X, y, y_baseline = create_sliding_windows(
+                    processed_data, target_column, window_size, horizon, step, target_mode="delta"
+                )
+            else:
+                X, y = create_sliding_windows(
+                    processed_data, target_column, window_size, horizon, step, target_mode="absolute"
+                )
+                y_baseline = None
         logger.info(f"Window samples shape: X={X.shape}")
         
         # Make predictions

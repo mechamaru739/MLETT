@@ -7,7 +7,7 @@ data:
   datetime_column: "date"
   target_column: "OT"
   
-  # Feature columns (used as input to sliding window)
+  # Sensor columns (used as input features, also for rolling statistics in industrial mode)
   numerical_features:
     - "HUFL"
     - "HULL"
@@ -28,17 +28,25 @@ split:
 
 # Feature engineering configuration
 features:
-  # Time-based features
+  # Feature mode: "flat" or "industrial"
+  #   "flat" -> flatten (window_size x n_features) matrix (e.g. 24x15=360d)
+  #   "industrial" -> compact (24+12+6=42d) features:
+  #     rolling stats + recent values + target-point time features
+  feature_mode: "industrial"
+  
+  # Column groups for industrial feature extraction
+  # sensor_columns uses data.numerical_features above
+  time_columns:
+    - "hour_sin"
+    - "hour_cos"
+    - "month_sin"
+    - "month_cos"
+    - "day_of_week"
+    - "is_weekend"
+  
+  # Time-based features (applied before windowing)
   extract_time_features: true
   include_cyclical_features: true
-  
-  # Rolling window features (not used in sliding window mode)
-  create_rolling_features: false
-  rolling_windows: [3, 6, 12, 24]
-  
-  # Lag features (not used in sliding window mode)
-  create_lag_features: false
-  lags: [1, 2, 3, 6, 12, 24]
   
   # Sliding window configuration for time series forecasting
   # Each sample: past `window_size` hours of features -> future `forecast_horizon` hours of OT
@@ -62,22 +70,22 @@ model:
     tree_method: "hist"              # Histogram algorithm: faster + inherent regularization
     
     # --- Training strategy (low LR + high n_estimators) ---
-    learning_rate: 0.001               # Small steps for stable convergence
-    n_estimators: 500                # More trees to compensate low LR
-    early_stopping_rounds: 50         # Longer patience for low LR
+    learning_rate: 0.01              # Moderate learning rate for industrial features (42d)
+    n_estimators: 1000               # More trees to compensate low LR
+    early_stopping_rounds: 50        # Longer patience for low LR
     
-    # --- Complexity control (core anti-overfitting) ---
-    max_depth: 5                      # Shallow trees prevent memorizing noise
-    min_child_weight: 3                # Minimum samples per leaf prevents extreme splits
+    # --- Complexity control ---
+    max_depth: 5                     # Moderate depth for compact feature space
+    min_child_weight: 5              # Minimum samples per leaf prevents extreme splits
     
     # --- Stochastic subsampling ---
     subsample: 0.7                   # Row sampling per tree
-    colsample_bytree: 0.4            # Column sampling per tree (important for high-dim input)
-    colsample_bylevel: 0.7           # Column sampling per split level
+    colsample_bytree: 0.8           # Higher ratio for 42d (less aggressive than 360d)
+    colsample_bylevel: 0.8          # Higher ratio for 42d
     
-    # --- Regularization (suppress overfitting) ---
-    reg_alpha: 0.5                    # L1 regularization: sparsity, kill useless features
-    reg_lambda: 2.0                   # L2 regularization: smooth weights, reduce sensitivity
+    # --- Regularization ---
+    reg_alpha: 0.5                   # L1 regularization: sparsity, kill useless features
+    reg_lambda: 2.0                  # L2 regularization: smooth weights, reduce sensitivity
 
 # Training configuration
 training:

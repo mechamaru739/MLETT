@@ -27,10 +27,7 @@ def extract_time_features(data: pd.DataFrame, datetime_column: str) -> pd.DataFr
     hour = result[datetime_column].dt.hour
     month = result[datetime_column].dt.month
 
-    result['day'] = result[datetime_column].dt.day
     result['day_of_week'] = result[datetime_column].dt.dayofweek
-    result['day_of_year'] = result[datetime_column].dt.dayofyear
-    result['quarter'] = result[datetime_column].dt.quarter
     
     result['is_weekend'] = (result['day_of_week'] >= 5).astype(int)
     
