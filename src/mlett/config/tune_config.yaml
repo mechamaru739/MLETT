@@ -1,5 +1,4 @@
 # MLETT Hyperparameter Tuning Configuration
-# Grid search: all combinations of parameters in param_space are evaluated.
 
 # Base configuration file to inherit data/split/features settings
 base_config: "src/mlett/config/config.yaml"
@@ -7,14 +6,10 @@ base_config: "src/mlett/config/config.yaml"
 # Random seed reset before each experiment (ensures fair comparison)
 random_seed: 42
 
-# Tuning method: "grid" only (cartesian product of param_space)
-tune_method: "grid"
+# Tuning method: "grid" (cartesian product) or "optuna" (Bayesian optimization)
+tune_method: "optuna"
 
-# Parameter search space (overrides model.xgboost in base_config)
-# Only list parameters you want to tune; others keep their base_config values.
-# Adjust the number of values to control total experiments:
-#   2^6 = 64 experiments  (recommended starting point)
-#   3^6 = 729 experiments (very thorough, takes hours)
+# --- Grid search space (only used when tune_method="grid") ---
 param_space:
   max_depth: [3, 5]
   learning_rate: [0.01, 0.05]
@@ -22,3 +17,40 @@ param_space:
   min_child_weight: [3, 10]
   reg_alpha: [0.1, 1.0]
   reg_lambda: [1.0, 5.0]
+
+# --- Optuna search space (only used when tune_method="optuna") ---
+search_space:
+  max_depth:
+    type: "int"
+    low: 3
+    high: 8
+  learning_rate:
+    type: "float"
+    low: 0.001
+    high: 0.1
+    log: true
+  n_estimators:
+    type: "int"
+    low: 200
+    high: 2000
+  min_child_weight:
+    type: "int"
+    low: 1
+    high: 10
+  reg_alpha:
+    type: "float"
+    low: 0.01
+    high: 1.0
+    log: true
+  reg_lambda:
+    type: "float"
+    low: 0.5
+    high: 5.0
+
+# --- Optuna configuration ---
+optuna:
+  n_trials: 50
+  sampler: "TPESampler"           # TPESampler / RandomSampler / CMAESampler
+  pruner: "MedianPruner"          # None / MedianPruner
+  pruner_warmup_steps: 10
+  pruner_interval_steps: 5

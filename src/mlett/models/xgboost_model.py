@@ -3,7 +3,7 @@
 import xgboost as xgb
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from .base_model import BaseModel
 
 
@@ -32,6 +32,7 @@ class XGBoostModel(BaseModel):
             default_params.update(model_params)
         
         super().__init__(default_params)
+        self.eval_history: Dict[str, List[float]] = {}
     
     @property
     def native_model(self):
@@ -61,16 +62,17 @@ class XGBoostModel(BaseModel):
             self.feature_columns = [f'feature_{i}' for i in range(X.shape[1])]
         
         self._estimator = xgb.XGBRegressor(**self.model_params)
+        self.eval_history = {}
         
+        fit_params = {}
         if eval_set:
             X_val, y_val = eval_set
-            self._estimator.fit(
-                X, y,
-                eval_set=[(X_val, y_val)],
-                verbose=False
-            )
-        else:
-            self._estimator.fit(X, y)
+            fit_params['eval_set'] = [(X_val, y_val)]
+        
+        self._estimator.fit(X, y, verbose=False, **fit_params)
+        
+        if eval_set:
+            self.eval_history = self._estimator.evals_result()
         
         self.is_fitted = True
     
@@ -91,6 +93,29 @@ class XGBoostModel(BaseModel):
             raise RuntimeError("Model must be fitted before making predictions")
         
         return self._estimator.predict(X)
+    
+    def get_eval_scores(self, metric_name: str = 'rmse') -> List[float]:
+        """
+        Get per-iteration validation scores from the last fit.
+        
+        Parameters:
+            metric_name (str): Metric name to extract (default: 'rmse')
+        
+        Returns:
+            List[float]: Per-iteration validation scores, or empty list if unavailable
+        """
+        if not self.eval_history:
+            return []
+        
+        validation_key = 'validation_0'
+        if validation_key not in self.eval_history:
+            return []
+        
+        available_metrics = self.eval_history[validation_key]
+        if metric_name in available_metrics:
+            return available_metrics[metric_name]
+        
+        return list(available_metrics.values())[0] if available_metrics else []
     
     def get_feature_importance(self) -> pd.DataFrame:
         """

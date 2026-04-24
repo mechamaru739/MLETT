@@ -98,6 +98,11 @@ class Trainer:
             'timestamp': get_timestamp()
         }
         
+        if eval_set and hasattr(self.model, 'eval_history') and self.model.eval_history:
+            eval_scores = self.model.get_eval_scores()
+            if eval_scores:
+                results['eval_history'] = eval_scores
+        
         if X_val is not None and y_val is not None:
             val_predictions = self.model.predict(X_val)
             if is_delta and y_val_baseline is not None:

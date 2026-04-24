@@ -28,6 +28,7 @@ dependencies = [
     "xgboost>=1.7.0",
     "pyyaml>=6.0",
     "joblib>=1.2.0",
+    "optuna>=3.0",
 ]
 
 [project.optional-dependencies]
