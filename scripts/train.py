@@ -56,10 +56,11 @@ def run_training(config: dict, experiment_name: str) -> dict:
     logger.info(f"Experiment directory: {experiment_dir}")
     
     # Log model parameters prominently for tuning comparison
-    xgb_params = config.get('model', {}).get('xgboost', {})
+    model_type = config.get('model', {}).get('type', 'xgboost')
+    model_params = config.get('model', {}).get(model_type, {})
     logger.info("=" * 60)
-    logger.info("MODEL PARAMETERS:")
-    for k, v in xgb_params.items():
+    logger.info(f"MODEL PARAMETERS ({model_type}):")
+    for k, v in model_params.items():
         logger.info(f"  {k}: {v}")
     logger.info("=" * 60)
     
@@ -195,7 +196,7 @@ def run_training(config: dict, experiment_name: str) -> dict:
     # Step 6: Initialize trainer
     logger.info("Initializing trainer...")
     trainer = Trainer(
-        model_params=config['model']['xgboost'],
+        model_params=model_params,
         log_dir=experiment_dir
     )
     
@@ -260,7 +261,7 @@ def run_training(config: dict, experiment_name: str) -> dict:
                 'target_mode': target_mode,
                 'description': f'Each sample uses past {window_size} hours of features to predict next {horizon} hour(s) of OT'
             },
-            'model_params': config['model']['xgboost'],
+            'model_params': model_params,
             'timestamp': get_timestamp()
         }
         
@@ -278,7 +279,7 @@ def run_training(config: dict, experiment_name: str) -> dict:
         'experiment_name': experiment_name,
         'training_results': training_results,
         'test_metrics': test_metrics,
-        'model_params': config['model']['xgboost'],
+        'model_params': model_params,
         'status': 'success'
     }
 

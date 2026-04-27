@@ -59,7 +59,7 @@ features:
 
 # Model configuration
 model:
-  type: "xgboost"
+  type: "xgboost"                  # "xgboost" or "lightgbm"
   
   # XGBoost parameters (optimized for ETT dataset, anti-overfitting)
   xgboost:
@@ -86,6 +86,32 @@ model:
     # --- Regularization ---
     reg_alpha: 0.5                   # L1 regularization: sparsity, kill useless features
     reg_lambda: 2.0                  # L2 regularization: smooth weights, reduce sensitivity
+  
+  # LightGBM parameters (alternative gradient boosting framework)
+  lightgbm:
+    # --- Objective & metric ---
+    objective: "regression"
+    metric: "mae"
+    random_state: 42
+    n_jobs: -1
+    verbose: -1
+    
+    # --- Training strategy ---
+    learning_rate: 0.01
+    n_estimators: 1000
+    early_stopping_rounds: 50
+    
+    # --- Complexity control ---
+    max_depth: 5                     # Tree depth limit
+    num_leaves: 31                   # Primary complexity knob in LightGBM (leaf-wise growth)
+    
+    # --- Stochastic subsampling ---
+    subsample: 0.7                   # Row sampling (bagging_fraction)
+    colsample_bytree: 0.8           # Column sampling per tree
+    
+    # --- Regularization ---
+    reg_alpha: 0.5                   # L1 regularization
+    reg_lambda: 2.0                  # L2 regularization
 
 # Training configuration
 training:

@@ -10,6 +10,7 @@ random_seed: 42
 tune_method: "optuna"
 
 # --- Grid search space (only used when tune_method="grid") ---
+# XGBoost grid space
 param_space:
   max_depth: [3, 5]
   learning_rate: [0.01, 0.05]
@@ -18,7 +19,19 @@ param_space:
   reg_alpha: [0.1, 1.0]
   reg_lambda: [1.0, 5.0]
 
+# LightGBM grid space (used when model.type="lightgbm" and tune_method="grid")
+lightgbm_param_space:
+  max_depth: [3, 5]
+  num_leaves: [15, 31]
+  learning_rate: [0.01, 0.05]
+  n_estimators: [500, 1000]
+  subsample: [0.6, 0.8]
+  colsample_bytree: [0.6, 0.8]
+  reg_alpha: [0.1, 1.0]
+  reg_lambda: [1.0, 5.0]
+
 # --- Optuna search space (only used when tune_method="optuna") ---
+# XGBoost search space
 search_space:
   max_depth:
     type: "int"
@@ -37,6 +50,43 @@ search_space:
     type: "int"
     low: 1
     high: 10
+  reg_alpha:
+    type: "float"
+    low: 0.01
+    high: 1.0
+    log: true
+  reg_lambda:
+    type: "float"
+    low: 0.5
+    high: 5.0
+
+# LightGBM search space (used when model.type="lightgbm" and tune_method="optuna")
+lightgbm_search_space:
+  max_depth:
+    type: "int"
+    low: 3
+    high: 8
+  num_leaves:
+    type: "int"
+    low: 15
+    high: 63
+  learning_rate:
+    type: "float"
+    low: 0.001
+    high: 0.1
+    log: true
+  n_estimators:
+    type: "int"
+    low: 200
+    high: 2000
+  subsample:
+    type: "float"
+    low: 0.5
+    high: 1.0
+  colsample_bytree:
+    type: "float"
+    low: 0.5
+    high: 1.0
   reg_alpha:
     type: "float"
     low: 0.01

@@ -104,7 +104,11 @@ def run_grid(tune_config: dict, base_config: dict, tune_dir: str, metric_name: s
     Returns:
         list: All experiment results
     """
-    param_space = tune_config['param_space']
+    model_type = base_config.get('model', {}).get('type', 'xgboost')
+    if model_type == 'lightgbm':
+        param_space = tune_config.get('lightgbm_param_space', tune_config['param_space'])
+    else:
+        param_space = tune_config['param_space']
     param_combos = generate_grid(param_space)
     
     max_exp = tune_config.get('max_experiments', None)
@@ -133,7 +137,7 @@ def run_grid(tune_config: dict, base_config: dict, tune_dir: str, metric_name: s
         print(f"{'=' * 70}")
         
         config = deep_update(copy.deepcopy(base_config), {
-            'model': {'xgboost': param_update}
+            'model': {model_type: param_update}
         })
         config['paths']['results_dir'] = tune_dir
         
@@ -256,7 +260,11 @@ def run_optuna(tune_config: dict, base_config: dict, tune_dir: str, metric_name:
     """
     import optuna
     
-    search_space = tune_config['search_space']
+    model_type = base_config.get('model', {}).get('type', 'xgboost')
+    if model_type == 'lightgbm':
+        search_space = tune_config.get('lightgbm_search_space', tune_config['search_space'])
+    else:
+        search_space = tune_config['search_space']
     optuna_config = tune_config.get('optuna', {})
     n_trials = optuna_config.get('n_trials', 50)
     sampler_name = optuna_config.get('sampler', 'TPESampler')
@@ -295,7 +303,7 @@ def run_optuna(tune_config: dict, base_config: dict, tune_dir: str, metric_name:
         print(f"Parameters: {params}")
         
         config = deep_update(copy.deepcopy(base_config), {
-            'model': {'xgboost': params}
+            'model': {model_type: params}
         })
         config['paths']['results_dir'] = tune_dir
         

@@ -80,6 +80,9 @@ class Trainer:
         
         if model_type == "xgboost":
             self.model = XGBoostModel(self.model_params)
+        elif model_type == "lightgbm":
+            from mlett.models.lightgbm_model import LightGBMModel
+            self.model = LightGBMModel(self.model_params)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
         
