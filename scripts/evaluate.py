@@ -6,7 +6,7 @@ import joblib
 import pandas as pd
 import numpy as np
 
-from mlett.models.xgboost_model import XGBoostModel
+from mlett.models.base_model import BaseModel
 from mlett.data.preprocessing import clean_data
 from mlett.data.time_series_split import create_sliding_windows
 from mlett.features.industrial_features import create_industrial_windows, TIME_FEATURE_COLUMNS
@@ -35,9 +35,8 @@ def evaluate_model(
         config_path = os.path.join(experiment_dir, "config.yaml")
         
         logger.info(f"Loading model from: {model_path}")
-        model = XGBoostModel()
-        model.load_model(model_path)
-        logger.info("Model loaded successfully")
+        model = BaseModel.load_model_from_file(model_path)
+        logger.info(f"Model loaded successfully (type: {model.model_type})")
         
         logger.info(f"Loading transformer from: {transformer_path}")
         transformer = joblib.load(transformer_path)

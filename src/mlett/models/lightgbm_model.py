@@ -10,6 +10,8 @@ from .base_model import BaseModel
 class LightGBMModel(BaseModel):
     """LightGBM model wrapper for time series forecasting."""
 
+    model_type = "lightgbm"
+    
     def __init__(self, model_params: Optional[Dict[str, Any]] = None):
         """
         Initialize LightGBM model.

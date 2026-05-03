@@ -10,6 +10,8 @@ from .base_model import BaseModel
 class XGBoostModel(BaseModel):
     """XGBoost model wrapper for time series forecasting."""
     
+    model_type = "xgboost"
+    
     def __init__(self, model_params: Optional[Dict[str, Any]] = None):
         """
         Initialize XGBoost model.
