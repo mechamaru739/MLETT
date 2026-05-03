@@ -1,5 +1,7 @@
 # MLETT - ML Time Series Forecasting on ETT Dataset
 
+**[中文版 README](README_CN.md)**
+
 A machine learning pipeline for time series forecasting using the ETT (Electricity Transformer Temperature) dataset.
 
 ## Project Structure
