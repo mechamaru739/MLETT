@@ -62,6 +62,8 @@ class LightGBMModel(BaseModel):
         else:
             self.feature_columns = [f'feature_{i}' for i in range(X.shape[1])]
 
+        early_stopping_rounds = self.model_params.pop('early_stopping_rounds', None)
+        
         self._estimator = lgb.LGBMRegressor(**self.model_params)
         self.eval_history = {}
 
@@ -69,7 +71,10 @@ class LightGBMModel(BaseModel):
         if eval_set:
             X_val, y_val = eval_set
             fit_params['eval_set'] = [(X_val, y_val)]
-            fit_params['callbacks'] = [lgb.log_evaluation(period=0)]
+            callbacks = [lgb.log_evaluation(period=0)]
+            if early_stopping_rounds is not None:
+                callbacks.append(lgb.early_stopping(stopping_rounds=early_stopping_rounds))
+            fit_params['callbacks'] = callbacks
 
         self._estimator.fit(X, y, **fit_params)
 
