@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, Optional
 
 
 def time_series_split(
@@ -106,60 +106,3 @@ def create_sliding_windows(
         return X_arr, y_arr, np.array(y_baseline)
     
     return X_arr, y_arr
-
-
-def create_rolling_features(
-    data: pd.DataFrame,
-    feature_columns: List[str],
-    windows: List[int] = [3, 6, 12, 24]
-) -> pd.DataFrame:
-    """
-    Create rolling window features for time series data.
-    
-    Parameters:
-        data (pd.DataFrame): The time series data
-        feature_columns (List[str]): List of feature columns to create rolling features for
-        windows (List[int]): List of window sizes (default: [3, 6, 12, 24])
-    
-    Returns:
-        pd.DataFrame: DataFrame with added rolling features
-    """
-    result = data.copy()
-    
-    for col in feature_columns:
-        for window in windows:
-            result[f'{col}_rolling_mean_{window}'] = result[col].rolling(window=window).mean()
-            result[f'{col}_rolling_std_{window}'] = result[col].rolling(window=window).std()
-            result[f'{col}_rolling_min_{window}'] = result[col].rolling(window=window).min()
-            result[f'{col}_rolling_max_{window}'] = result[col].rolling(window=window).max()
-    
-    result = result.fillna(method='bfill')
-    
-    return result
-
-
-def create_lag_features(
-    data: pd.DataFrame,
-    feature_columns: List[str],
-    lags: List[int] = [1, 2, 3, 6, 12, 24]
-) -> pd.DataFrame:
-    """
-    Create lag features for time series data.
-    
-    Parameters:
-        data (pd.DataFrame): The time series data
-        feature_columns (List[str]): List of feature columns to create lag features for
-        lags (List[int]): List of lag values (default: [1, 2, 3, 6, 12, 24])
-    
-    Returns:
-        pd.DataFrame: DataFrame with added lag features
-    """
-    result = data.copy()
-    
-    for col in feature_columns:
-        for lag in lags:
-            result[f'{col}_lag_{lag}'] = result[col].shift(lag)
-    
-    result = result.fillna(method='bfill')
-    
-    return result
