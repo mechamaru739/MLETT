@@ -6,8 +6,7 @@ from typing import Dict, Any
 from sklearn.metrics import (
     mean_squared_error, 
     mean_absolute_error, 
-    r2_score,
-    mean_absolute_percentage_error
+    r2_score
 )
 
 
@@ -32,13 +31,20 @@ def calculate_metrics(
         'R2': r2_score(y_true, y_pred)
     }
     
-    try:
-        metrics['MAPE'] = mean_absolute_percentage_error(y_true, y_pred)
-    except:
+    # MAPE with epsilon protection to avoid division by zero
+    epsilon = 1e-8
+    abs_true = np.abs(y_true)
+    mask = abs_true > epsilon
+    if np.any(mask):
+        metrics['MAPE'] = np.mean(np.abs(y_pred[mask] - y_true[mask]) / abs_true[mask]) * 100
+    else:
         metrics['MAPE'] = np.nan
     
-    if np.any(y_true != 0):
-        metrics['SMAPE'] = np.mean(2.0 * np.abs(y_pred - y_true) / (np.abs(y_true) + np.abs(y_pred))) * 100
+    # SMAPE with epsilon protection
+    denominator = np.abs(y_true) + np.abs(y_pred)
+    mask = denominator > epsilon
+    if np.any(mask):
+        metrics['SMAPE'] = np.mean(2.0 * np.abs(y_pred[mask] - y_true[mask]) / denominator[mask]) * 100
     else:
         metrics['SMAPE'] = np.nan
     

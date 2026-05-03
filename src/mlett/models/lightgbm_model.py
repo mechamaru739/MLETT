@@ -69,16 +69,19 @@ class LightGBMModel(BaseModel):
         self._estimator = lgb.LGBMRegressor(**self.model_params)
         self.eval_history = {}
 
+        # Convert y to 1d array to avoid DataConversionWarning
+        y_1d = np.asarray(y).ravel()
+
         fit_params = {}
         if eval_set:
             X_val, y_val = eval_set
-            fit_params['eval_set'] = [(X_val, y_val)]
+            fit_params['eval_set'] = [(X_val, np.asarray(y_val).ravel())]
             callbacks = [lgb.log_evaluation(period=0)]
             if early_stopping_rounds is not None:
                 callbacks.append(lgb.early_stopping(stopping_rounds=early_stopping_rounds))
             fit_params['callbacks'] = callbacks
 
-        self._estimator.fit(X, y, **fit_params)
+        self._estimator.fit(X, y_1d, **fit_params)
 
         if eval_set and hasattr(self._estimator, 'evals_result_'):
             self.eval_history = self._estimator.evals_result_
@@ -100,6 +103,10 @@ class LightGBMModel(BaseModel):
         """
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before making predictions")
+
+        # Convert numpy array to DataFrame with feature names to avoid warning
+        if isinstance(X, np.ndarray) and self.feature_columns:
+            X = pd.DataFrame(X, columns=self.feature_columns)
 
         return self._estimator.predict(X)
 
